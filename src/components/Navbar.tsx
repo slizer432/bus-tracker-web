@@ -4,11 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Search, Bell, Settings } from "lucide-react";
 
-const navItems = [
-  { name: "Live Map", href: "/" },
-  { name: "Fleet Status", href: "/fleet" },
-  { name: "Route Analytics", href: "/analytics" },
-];
+const navItems = [{ name: "Fleet Status", href: "/fleet" }];
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -25,11 +21,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`text-sm font-medium pb-1 transition-all whitespace-nowrap ${
-                  isActive
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-500 hover:text-blue-600"
-                }`}
+                className={`text-sm font-medium pb-1 transition-all whitespace-nowrap text-blue-600 border-b-2 border-blue-600`}
               >
                 {item.name}
               </Link>
@@ -37,7 +29,6 @@ export default function Navbar() {
           })}
         </div>
       </div>
-
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-4 px-4">
         {/* SEARCH */}
@@ -63,7 +54,7 @@ export default function Navbar() {
           </button>
 
           <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden">
-            <img src="/UserAvatar.svg" alt="user" />
+            <img src="/circle-user.svg" alt="user" />
           </div>
         </div>
       </div>
