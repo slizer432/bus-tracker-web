@@ -21,8 +21,8 @@ const navItems = [
   //   icon: Building2,
   // },
   {
-    name: "Maintenance",
-    href: "/maintenance",
+    name: "Admin",
+    href: "/admin",
     icon: Wrench,
   },
 ];
