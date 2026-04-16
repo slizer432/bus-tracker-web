@@ -32,7 +32,7 @@ export default function Navbar() {
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-4 px-4">
         {/* SEARCH */}
-        <div className="relative">
+        {/* <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"
@@ -41,7 +41,7 @@ export default function Navbar() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-64 pl-10 pr-4 py-2 rounded-full bg-gray-100 text-sm outline-none"
           />
-        </div>
+        </div> */}
 
         {/* ICONS & PROFILE */}
         <div className="flex items-center gap-4">
