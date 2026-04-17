@@ -1,14 +1,20 @@
+"use client";
+
 import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   Eye,
-  Filter,
   MoreVertical,
   Plus,
+  Search,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 
 type RouteStatus = "on-schedule" | "minor-delays" | "delayed";
+type RouteFilter = RouteStatus | "all";
+type RouteSortKey = "id" | "status" | "activeBuses";
+type SortDirection = "asc" | "desc";
 
 type RouteItem = {
   id: string;
@@ -74,6 +80,13 @@ const statusLabels: Record<RouteStatus, string> = {
   delayed: "Delayed",
 };
 
+const filterLabels: Record<RouteFilter, string> = {
+  all: "All",
+  "on-schedule": "On Schedule",
+  "minor-delays": "Minor Delays",
+  delayed: "Delayed",
+};
+
 function RouteStatusBadge({ status }: { status: RouteStatus }) {
   return (
     <span
@@ -88,6 +101,55 @@ function RouteStatusBadge({ status }: { status: RouteStatus }) {
 }
 
 export default function RoutesPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<RouteFilter>("all");
+  const [sortKey, setSortKey] = useState<RouteSortKey>("id");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const handleSort = (key: RouteSortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection("asc");
+  };
+
+  const displayedRoutes = useMemo(() => {
+    const filtered = routes.filter((route) => {
+      const bySearch =
+        searchQuery.trim() === "" ||
+        `${route.id} ${route.name} ${route.direction}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      const byStatus = statusFilter === "all" || route.status === statusFilter;
+
+      return bySearch && byStatus;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      if (sortKey === "id") {
+        comparison = a.id.localeCompare(b.id, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      } else if (sortKey === "status") {
+        comparison = statusLabels[a.status].localeCompare(
+          statusLabels[b.status],
+        );
+      } else {
+        comparison = a.activeBuses - b.activeBuses;
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [searchQuery, statusFilter, sortDirection, sortKey]);
+
   return (
     <section className="space-y-6 md:space-y-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -100,10 +162,36 @@ export default function RoutesPage() {
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button className="inline-flex items-center gap-2 rounded-lg border border-[#c3c6d6]/70 bg-white px-4 py-2 text-sm font-semibold text-[#424654] shadow-sm transition-colors hover:bg-[#f1f3ff]">
-            <Filter className="h-4 w-4" />
-            Filter
+        <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737785]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search route..."
+              className="w-full rounded-lg border border-[#c3c6d6]/70 bg-white py-2 pl-9 pr-3 text-sm text-[#141b2c] outline-none ring-[#0056d2] transition focus:ring-2"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as RouteFilter)}
+            className="cursor-pointer rounded-md border border-[#d4daea] bg-[#eef2ff] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#485062] outline-none ring-[#0a4cad] focus:ring-2"
+          >
+            {(Object.keys(filterLabels) as RouteFilter[]).map((filter) => (
+              <option key={filter} value={filter}>
+                {filterLabels[filter]}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#0040a1] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            New Route
           </button>
         </div>
       </header>
@@ -114,19 +202,43 @@ export default function RoutesPage() {
             <thead>
               <tr className="border-b border-[#c3c6d6]/35 bg-[#f5f7ff]">
                 <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
-                  <span className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("id")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "id"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
                     Route ID <ArrowUpDown className="h-3.5 w-3.5" />
-                  </span>
+                  </button>
                 </th>
                 <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
-                  <span className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("status")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "status"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
                     Live Status <ArrowUpDown className="h-3.5 w-3.5" />
-                  </span>
+                  </button>
                 </th>
                 <th className="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
-                  <span className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("activeBuses")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "activeBuses"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
                     Active Buses <ArrowUpDown className="h-3.5 w-3.5" />
-                  </span>
+                  </button>
                 </th>
                 <th className="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
                   Quick Actions
@@ -135,7 +247,7 @@ export default function RoutesPage() {
             </thead>
 
             <tbody className="divide-y divide-[#c3c6d6]/30">
-              {routes.map((route) => {
+              {displayedRoutes.map((route) => {
                 const routePillClass =
                   route.status === "delayed"
                     ? "bg-[#ffdad6] text-[#ba1a1a]"
@@ -180,13 +292,13 @@ export default function RoutesPage() {
                       <div className="inline-flex items-center gap-1">
                         <button
                           aria-label={`View route ${route.id}`}
-                          className="rounded-lg p-2 text-[#0040a1] transition-colors hover:bg-[#eaf0ff]"
+                          className="cursor-pointer rounded-lg p-2 text-[#0040a1] transition-colors hover:bg-[#eaf0ff]"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
                           aria-label={`More actions for route ${route.id}`}
-                          className="rounded-lg p-2 text-[#586579] transition-colors hover:bg-[#eef2ff]"
+                          className="cursor-pointer rounded-lg p-2 text-[#586579] transition-colors hover:bg-[#eef2ff]"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
@@ -195,12 +307,23 @@ export default function RoutesPage() {
                   </tr>
                 );
               })}
+
+              {displayedRoutes.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-6 py-10 text-center text-sm font-medium text-[#737785]"
+                  >
+                    No routes match your current filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="space-y-3 p-4 md:hidden">
-          {routes.map((route) => (
+          {displayedRoutes.map((route) => (
             <article
               key={route.id}
               className="rounded-xl border border-[#dbe2f9] bg-[#f9faff] p-4"
@@ -230,37 +353,47 @@ export default function RoutesPage() {
               <div className="mt-2 flex justify-end gap-2">
                 <button
                   aria-label={`View route ${route.id}`}
-                  className="rounded-lg bg-white p-2 text-[#0040a1] ring-1 ring-[#dbe2f9]"
+                  className="cursor-pointer rounded-lg bg-white p-2 text-[#0040a1] ring-1 ring-[#dbe2f9]"
                 >
                   <Eye className="h-4 w-4" />
                 </button>
                 <button
                   aria-label={`More actions for route ${route.id}`}
-                  className="rounded-lg bg-white p-2 text-[#586579] ring-1 ring-[#dbe2f9]"
+                  className="cursor-pointer rounded-lg bg-white p-2 text-[#586579] ring-1 ring-[#dbe2f9]"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </button>
               </div>
             </article>
           ))}
+
+          {displayedRoutes.length === 0 && (
+            <div className="rounded-xl border border-[#dbe2f9] bg-[#f9faff] p-4 text-center text-sm font-medium text-[#737785]">
+              No routes match your current filters.
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 border-t border-[#c3c6d6]/35 bg-[#f8f9ff] px-5 py-4 text-sm text-[#586579] sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Showing <span className="font-bold text-[#141b2c]">5</span> of{" "}
-            <span className="font-bold text-[#141b2c]">32</span> active routes
+            Showing{" "}
+            <span className="font-bold text-[#141b2c]">
+              {displayedRoutes.length}
+            </span>{" "}
+            of <span className="font-bold text-[#141b2c]">32</span> active
+            routes
           </p>
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
               disabled
               aria-label="Previous page"
-              className="rounded-md border border-[#c3c6d6]/60 p-1.5 text-[#9da3b0] disabled:opacity-70"
+              className="cursor-pointer rounded-md border border-[#c3c6d6]/60 p-1.5 text-[#9da3b0] disabled:opacity-70"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               aria-label="Next page"
-              className="rounded-md border border-[#c3c6d6]/60 p-1.5 text-[#586579] transition-colors hover:bg-[#eef2ff]"
+              className="cursor-pointer rounded-md border border-[#c3c6d6]/60 p-1.5 text-[#586579] transition-colors hover:bg-[#eef2ff]"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowUpDown,
   Bus,
   Download,
   ListFilter,
@@ -12,13 +13,16 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type AdminTab = "buses" | "routes";
 
 type BusStatus = "ACTIVE" | "REPAIR" | "STANDBY";
 type RouteStatus = "ACTIVE" | "DRAFT" | "INACTIVE";
 type ScheduleType = "WEEKDAYS" | "DAILY" | "PEAK";
+type SortDirection = "asc" | "desc";
+type BusSortKey = "id" | "model" | "capacity" | "status";
+type ConfiguredRouteSortKey = "route" | "coverage" | "type" | "status";
 
 type BusItem = {
   id: string;
@@ -82,6 +86,55 @@ const routeStatusClass: Record<RouteStatus, string> = {
 };
 
 function BusesPanel() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BusStatus | "ALL">("ALL");
+  const [sortKey, setSortKey] = useState<BusSortKey>("id");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const handleSort = (key: BusSortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection("asc");
+  };
+
+  const displayedBuses = useMemo(() => {
+    const filtered = buses.filter((bus) => {
+      const bySearch =
+        searchQuery.trim() === "" ||
+        `${bus.id} ${bus.model}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      const byStatus = statusFilter === "ALL" || bus.status === statusFilter;
+
+      return bySearch && byStatus;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      if (sortKey === "id") {
+        comparison = a.id.localeCompare(b.id, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      } else if (sortKey === "model") {
+        comparison = a.model.localeCompare(b.model);
+      } else if (sortKey === "capacity") {
+        comparison = a.capacity - b.capacity;
+      } else {
+        comparison = a.status.localeCompare(b.status);
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [searchQuery, sortDirection, sortKey, statusFilter]);
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-[#cfd4e2] bg-white p-5 shadow-sm sm:p-6">
@@ -138,7 +191,7 @@ function BusesPanel() {
           </label>
         </div>
 
-        <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#0a4cad] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90">
+        <button className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#0a4cad] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90">
           <Save className="h-4 w-4" />
           Save Bus Entry
         </button>
@@ -156,10 +209,26 @@ function BusesPanel() {
               <input
                 type="text"
                 placeholder="Search fleet..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-md border border-[#d4daea] bg-[#eef2ff] py-2 pl-9 pr-3 text-sm outline-none ring-[#0a4cad] transition focus:ring-2"
               />
             </div>
-            <button className="inline-flex items-center gap-1 text-xs font-bold text-[#0a4cad] transition-opacity hover:opacity-80">
+
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as BusStatus | "ALL")
+              }
+              className="cursor-pointer rounded-md border border-[#d4daea] bg-[#eef2ff] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#485062] outline-none ring-[#0a4cad] focus:ring-2"
+            >
+              <option value="ALL">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="REPAIR">Repair</option>
+              <option value="STANDBY">Standby</option>
+            </select>
+
+            <button className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#0a4cad] transition-opacity hover:opacity-80">
               <Download className="h-3.5 w-3.5" />
               Download CSV
             </button>
@@ -170,15 +239,63 @@ function BusesPanel() {
           <table className="min-w-full border-collapse text-left">
             <thead>
               <tr className="bg-[#f1f4ff] text-[11px] font-bold uppercase tracking-[0.15em] text-[#586579]">
-                <th className="px-4 py-3">Bus ID</th>
-                <th className="px-4 py-3">Model</th>
-                <th className="px-4 py-3">Capacity</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("id")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "id"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Bus ID <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("model")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "model"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Model <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("capacity")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "capacity"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Capacity <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("status")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "status"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Status <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e0e5f1]">
-              {buses.map((bus) => (
+              {displayedBuses.map((bus) => (
                 <tr key={bus.id} className="hover:bg-[#f9fbff]">
                   <td className="px-4 py-4 font-bold text-[#1f2633]">
                     {bus.id}
@@ -196,22 +313,33 @@ function BusesPanel() {
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex justify-end gap-1">
-                      <button className="rounded-md p-2 text-[#586579] transition-colors hover:bg-[#eef2ff] hover:text-[#0a4cad]">
+                      <button className="cursor-pointer rounded-md p-2 text-[#586579] transition-colors hover:bg-[#eef2ff] hover:text-[#0a4cad]">
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button className="rounded-md p-2 text-[#586579] transition-colors hover:bg-[#fff1f1] hover:text-[#c33c45]">
+                      <button className="cursor-pointer rounded-md p-2 text-[#586579] transition-colors hover:bg-[#fff1f1] hover:text-[#c33c45]">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+
+              {displayedBuses.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm font-medium text-[#737b8c]"
+                  >
+                    No buses found for this search/filter.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="space-y-3 p-4 md:hidden">
-          {buses.map((bus) => (
+          {displayedBuses.map((bus) => (
             <article
               key={bus.id}
               className="rounded-xl border border-[#dbe2f0] bg-[#fbfcff] p-4"
@@ -229,24 +357,32 @@ function BusesPanel() {
                 Capacity: {bus.capacity}
               </p>
               <div className="mt-3 flex justify-end gap-2">
-                <button className="rounded-md bg-white p-2 text-[#586579] ring-1 ring-[#dbe2f0]">
+                <button className="cursor-pointer rounded-md bg-white p-2 text-[#586579] ring-1 ring-[#dbe2f0]">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button className="rounded-md bg-white p-2 text-[#c33c45] ring-1 ring-[#dbe2f0]">
+                <button className="cursor-pointer rounded-md bg-white p-2 text-[#c33c45] ring-1 ring-[#dbe2f0]">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </article>
           ))}
+
+          {displayedBuses.length === 0 && (
+            <div className="rounded-xl border border-[#dbe2f0] bg-[#fbfcff] p-4 text-center text-sm font-medium text-[#737b8c]">
+              No buses found for this search/filter.
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-[#d8deeb] bg-[#f5f7ff] px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#586579]">
-          <p>Showing 5 of 24 Fleet Vehicles</p>
+          <p>
+            Showing {displayedBuses.length} of {buses.length} Fleet Vehicles
+          </p>
           <div className="flex gap-2">
-            <button className="rounded-md border border-[#ccd4e7] px-3 py-1.5 text-[#2d3545]">
+            <button className="cursor-pointer rounded-md border border-[#ccd4e7] px-3 py-1.5 text-[#2d3545]">
               Prev
             </button>
-            <button className="rounded-md border border-[#ccd4e7] px-3 py-1.5 text-[#2d3545]">
+            <button className="cursor-pointer rounded-md border border-[#ccd4e7] px-3 py-1.5 text-[#2d3545]">
               Next
             </button>
           </div>
@@ -257,6 +393,55 @@ function BusesPanel() {
 }
 
 function RoutesPanel() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<RouteStatus | "ALL">("ALL");
+  const [sortKey, setSortKey] = useState<ConfiguredRouteSortKey>("route");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const handleSort = (key: ConfiguredRouteSortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection("asc");
+  };
+
+  const displayedConfiguredRoutes = useMemo(() => {
+    const filtered = configuredRoutes.filter((item) => {
+      const bySearch =
+        searchQuery.trim() === "" ||
+        `${item.route} ${item.coverage} ${item.type}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      const byStatus = statusFilter === "ALL" || item.status === statusFilter;
+
+      return bySearch && byStatus;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      if (sortKey === "route") {
+        comparison = a.route.localeCompare(b.route, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      } else if (sortKey === "coverage") {
+        comparison = a.coverage.localeCompare(b.coverage);
+      } else if (sortKey === "type") {
+        comparison = a.type.localeCompare(b.type);
+      } else {
+        comparison = a.status.localeCompare(b.status);
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [searchQuery, sortDirection, sortKey, statusFilter]);
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-[#cfd4e2] bg-white p-5 shadow-sm sm:p-6">
@@ -346,36 +531,111 @@ function RoutesPanel() {
           </fieldset>
         </div>
 
-        <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#0a4cad] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90">
+        <button className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#0a4cad] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90">
           <Save className="h-4 w-4" />
           Save Route Configuration
         </button>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#cfd4e2] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#d8deeb] p-4">
+        <div className="flex flex-col gap-3 border-b border-[#d8deeb] p-4 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[#1f2633]">
             Configured Routes
           </h3>
-          <button className="inline-flex items-center gap-1 text-xs font-bold text-[#0a4cad] transition-opacity hover:opacity-80">
-            <Map className="h-3.5 w-3.5" />
-            Map View
-          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="relative w-full sm:w-56">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737b8c]" />
+              <input
+                type="text"
+                placeholder="Search routes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-[#d4daea] bg-[#eef2ff] py-2 pl-9 pr-3 text-sm outline-none ring-[#0a4cad] transition focus:ring-2"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as RouteStatus | "ALL")
+              }
+              className="cursor-pointer rounded-md border border-[#d4daea] bg-[#eef2ff] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#485062] outline-none ring-[#0a4cad] focus:ring-2"
+            >
+              <option value="ALL">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="DRAFT">Draft</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+
+            <button className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#0a4cad] transition-opacity hover:opacity-80">
+              <Map className="h-3.5 w-3.5" />
+              Map View
+            </button>
+          </div>
         </div>
 
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full border-collapse text-left">
             <thead>
               <tr className="bg-[#f1f4ff] text-[11px] font-bold uppercase tracking-[0.15em] text-[#586579]">
-                <th className="px-4 py-3">Route</th>
-                <th className="px-4 py-3">Coverage</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("route")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "route"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Route <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("coverage")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "coverage"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Coverage <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("type")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "type"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Type <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+                <th className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("status")}
+                    className={`inline-flex cursor-pointer items-center gap-1 transition-colors ${
+                      sortKey === "status"
+                        ? "text-[#0a4cad]"
+                        : "hover:text-[#0a4cad]"
+                    }`}
+                  >
+                    Status <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e0e5f1]">
-              {configuredRoutes.map((item) => (
+              {displayedConfiguredRoutes.map((item) => (
                 <tr key={item.route} className="hover:bg-[#f9fbff]">
                   <td className="px-4 py-4 font-bold text-[#1f2633]">
                     {item.route}
@@ -393,22 +653,33 @@ function RoutesPanel() {
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex justify-end gap-1">
-                      <button className="rounded-md p-2 text-[#586579] transition-colors hover:bg-[#eef2ff] hover:text-[#0a4cad]">
+                      <button className="cursor-pointer rounded-md p-2 text-[#586579] transition-colors hover:bg-[#eef2ff] hover:text-[#0a4cad]">
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button className="rounded-md p-2 text-[#586579] transition-colors hover:bg-[#fff1f1] hover:text-[#c33c45]">
+                      <button className="cursor-pointer rounded-md p-2 text-[#586579] transition-colors hover:bg-[#fff1f1] hover:text-[#c33c45]">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+
+              {displayedConfiguredRoutes.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-sm font-medium text-[#737b8c]"
+                  >
+                    No routes found for this search/filter.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="space-y-3 p-4 md:hidden">
-          {configuredRoutes.map((item) => (
+          {displayedConfiguredRoutes.map((item) => (
             <article
               key={item.route}
               className="rounded-xl border border-[#dbe2f0] bg-[#fbfcff] p-4"
@@ -429,15 +700,21 @@ function RoutesPanel() {
               </p>
 
               <div className="mt-3 flex justify-end gap-2">
-                <button className="rounded-md bg-white p-2 text-[#586579] ring-1 ring-[#dbe2f0]">
+                <button className="cursor-pointer rounded-md bg-white p-2 text-[#586579] ring-1 ring-[#dbe2f0]">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button className="rounded-md bg-white p-2 text-[#c33c45] ring-1 ring-[#dbe2f0]">
+                <button className="cursor-pointer rounded-md bg-white p-2 text-[#c33c45] ring-1 ring-[#dbe2f0]">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </article>
           ))}
+
+          {displayedConfiguredRoutes.length === 0 && (
+            <div className="rounded-xl border border-[#dbe2f0] bg-[#fbfcff] p-4 text-center text-sm font-medium text-[#737b8c]">
+              No routes found for this search/filter.
+            </div>
+          )}
         </div>
       </section>
     </div>
@@ -468,7 +745,7 @@ export default function AdminPage() {
             role="tab"
             aria-selected={tab === "buses"}
             onClick={() => setTab("buses")}
-            className={`inline-flex items-center gap-2 border-b-2 px-1 py-2.5 text-sm font-bold transition-colors ${
+            className={`inline-flex cursor-pointer items-center gap-2 border-b-2 px-1 py-2.5 text-sm font-bold transition-colors ${
               tab === "buses"
                 ? "border-[#0a4cad] text-[#0a4cad]"
                 : "border-transparent text-[#586579] hover:text-[#0a4cad]"
@@ -482,7 +759,7 @@ export default function AdminPage() {
             role="tab"
             aria-selected={tab === "routes"}
             onClick={() => setTab("routes")}
-            className={`inline-flex items-center gap-2 border-b-2 px-1 py-2.5 text-sm font-bold transition-colors ${
+            className={`inline-flex cursor-pointer items-center gap-2 border-b-2 px-1 py-2.5 text-sm font-bold transition-colors ${
               tab === "routes"
                 ? "border-[#0a4cad] text-[#0a4cad]"
                 : "border-transparent text-[#586579] hover:text-[#0a4cad]"

@@ -71,7 +71,7 @@ export default function BusCard({
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#586579]">
             Heading
           </p>
-          <p className="wrap-break-words text-[1.75rem] font-bold leading-tight text-[#141b2c] max-2xl:text-2xl max-xl:text-lg">
+          <p className="wrap-break-words text-[1.3rem] font-bold leading-tight text-[#141b2c] max-2xl:text-2xl max-xl:text-lg">
             {heading}
           </p>
         </div>
