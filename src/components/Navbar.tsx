@@ -1,22 +1,43 @@
 "use client";
 
+import { normalizeAppRole, type AppRole } from "@/lib/auth-role";
+import { createClient } from "@/lib/client";
+import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, LogOut, Settings, UserCircle2 } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
 
 const navItems = [{ name: "Fleet Status", href: "/fleet" }];
 
+function getDisplayName(user: User | null): string {
+  const fullName = user?.user_metadata?.full_name;
+
+  if (typeof fullName === "string" && fullName.trim() !== "") {
+    return fullName;
+  }
+
+  const emailName = user?.email?.split("@")[0];
+
+  if (emailName && emailName.trim() !== "") {
+    return emailName;
+  }
+
+  return "User";
+}
+
+function getUserRole(user: User | null): AppRole {
+  return normalizeAppRole(user?.user_metadata?.role);
+}
+
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userName, setUserName] = useState("User");
+  const [userRole, setUserRole] = useState<AppRole>("user");
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const isLoggedIn =
-    typeof window !== "undefined" &&
-    (Boolean(window.localStorage.getItem("authToken")) ||
-      window.localStorage.getItem("isLoggedIn") === "true");
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -36,10 +57,45 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    const supabase = createClient();
+    let isMounted = true;
+
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setUserName(getDisplayName(user));
+      setUserRole(getUserRole(user));
+    };
+
+    void loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserName(getDisplayName(session?.user ?? null));
+      setUserRole(getUserRole(session?.user ?? null));
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
     window.localStorage.removeItem("authToken");
     window.localStorage.removeItem("isLoggedIn");
     setIsMenuOpen(false);
+    router.push("/auth/login");
   };
 
   return (
@@ -70,6 +126,14 @@ export default function Navbar() {
       <div className="flex items-center gap-4 px-4">
         {/* ICONS & PROFILE */}
         <div className="flex items-center gap-4">
+          <p className="hidden text-sm font-semibold text-slate-700 sm:block">
+            Hello, {userName}
+          </p>
+
+          <span className="hidden rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-blue-700 sm:inline-flex">
+            {userRole}
+          </span>
+
           <button className="cursor-pointer p-2 text-gray-900 hover:text-blue-600">
             <Bell className="w-5 h-5" />
           </button>
@@ -98,43 +162,14 @@ export default function Navbar() {
 
             {isMenuOpen && (
               <div className="absolute right-0 z-30 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                {isLoggedIn ? (
-                  <>
-                    <Link
-                      href="/profile"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <UserCircle2 className="h-4 w-4" />
-                      Profile
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Log out
-                    </button>
-                  </>
-                ) : (
-                  <div className="space-y-2 p-1">
-                    <Link
-                      href="/login"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700"
-                    >
-                      Log in
-                    </Link>
-                    <Link
-                      href="/register"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block cursor-pointer rounded-lg border border-blue-200 px-3 py-2 text-center text-sm font-semibold text-blue-700 hover:bg-blue-50"
-                    >
-                      Register
-                    </Link>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Log out
+                </button>
               </div>
             )}
           </div>

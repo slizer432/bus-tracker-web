@@ -1,7 +1,38 @@
-import Link from "next/link";
-import { ArrowRight, LineChart, Lock, Mail } from "lucide-react";
+"use client";
 
-export default function LoginPage() {
+import { createClient } from "@/lib/client";
+import { ArrowRight, LineChart, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+export default function Page() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const supabase = createClient();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main className="flex min-h-screen w-full overflow-hidden bg-[#e8ebf6] text-[#141b2c]">
       <section className="relative hidden w-1/2 overflow-hidden bg-[#0c49a6] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-14">
@@ -9,12 +40,6 @@ export default function LoginPage() {
         <div className="absolute -left-24 bottom-[20%] h-64 w-64 rotate-45 border border-[#5f8ada] opacity-40" />
 
         <div className="relative max-w-xl">
-          {/* <div className="mb-12 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-white text-[#0c49a6]">
-              <LineChart className="h-5 w-5" />
-            </span>
-          </div> */}
-
           <h1 className="mb-6 text-5xl font-extrabold leading-[1.05] tracking-tight xl:text-6xl">
             Precision Fleet
             <br />
@@ -31,7 +56,7 @@ export default function LoginPage() {
         <div className="absolute right-6 top-6 hidden text-sm font-medium text-[#596072] sm:block lg:right-10 lg:top-8">
           Need system access?
           <Link
-            href="/register"
+            href="/auth/sign-up"
             className="ml-1 font-bold text-[#0c49a6] hover:underline"
           >
             Register
@@ -57,7 +82,7 @@ export default function LoginPage() {
             </p>
           </header>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleLogin}>
             <label className="block space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#596072]">
                 Email Address
@@ -68,6 +93,9 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   placeholder="name@email.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-lg bg-[#e4eafc] py-3 pl-10 pr-4 text-base text-[#1f2637] placeholder:text-[#97a2b8] outline-none ring-[#0c49a6] transition focus:ring-2"
                 />
                 <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-[#0c49a6] transition-all duration-300 group-focus-within:w-full" />
@@ -80,7 +108,7 @@ export default function LoginPage() {
                   Security Key
                 </span>
                 <Link
-                  href="#"
+                  href="/auth/forgot-password"
                   className="text-xs font-bold text-[#0c49a6] transition-opacity hover:opacity-80"
                 >
                   Forgot Password?
@@ -93,26 +121,26 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-lg bg-[#e4eafc] py-3 pl-10 pr-4 text-base text-[#1f2637] placeholder:text-[#97a2b8] outline-none ring-[#0c49a6] transition focus:ring-2"
                 />
                 <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-[#0c49a6] transition-all duration-300 group-focus-within:w-full" />
               </div>
             </label>
 
-            <label className="flex items-center gap-3 pt-1 text-sm font-medium text-[#596072]">
-              <input
-                id="remember"
-                type="checkbox"
-                className="h-4 w-4 rounded border-[#b2bbce] text-[#0c49a6] accent-[#0c49a6]"
-              />
-              Remember me
-            </label>
+            {error ? (
+              <p className="text-sm font-medium text-[#ba1a1a]">{error}</p>
+            ) : null}
 
             <button
-              type="button"
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0c49a6] px-5 py-3 text-lg font-bold text-white shadow-lg shadow-[#1a4ea8]/20 transition hover:bg-[#0f56be] active:scale-[0.99]"
+              type="submit"
+              disabled={isLoading}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0c49a6] px-5 py-3 text-lg font-bold text-white shadow-lg shadow-[#1a4ea8]/20 transition hover:bg-[#0f56be] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Log In <ArrowRight className="h-5 w-5" />
+              {isLoading ? "Logging in..." : "Log In"}
+              <ArrowRight className="h-5 w-5" />
             </button>
           </form>
 
@@ -120,7 +148,7 @@ export default function LoginPage() {
             <p className="text-center text-sm font-medium text-[#6a7182]">
               Need system access?
               <Link
-                href="/register"
+                href="/auth/sign-up"
                 className="ml-1 font-bold text-[#0c49a6] hover:underline"
               >
                 Register
