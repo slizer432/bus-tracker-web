@@ -1,7 +1,41 @@
-import Link from "next/link";
+"use client";
+
+import { authClient } from "@/lib/auth-client";
 import { ArrowRight, LineChart, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    const { error } = await authClient.signIn.email({
+      email,
+      password,
+      callbackURL: "/dashboard",
+      rememberMe,
+    });
+
+    if (error) {
+      setErrorMessage(error.message ?? "Failed to sign in.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  };
+
   return (
     <main className="flex min-h-screen w-full overflow-hidden bg-[#e8ebf6] text-[#141b2c]">
       <section className="relative hidden w-1/2 overflow-hidden bg-[#0c49a6] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-14">
@@ -9,12 +43,6 @@ export default function LoginPage() {
         <div className="absolute -left-24 bottom-[20%] h-64 w-64 rotate-45 border border-[#5f8ada] opacity-40" />
 
         <div className="relative max-w-xl">
-          {/* <div className="mb-12 flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-white text-[#0c49a6]">
-              <LineChart className="h-5 w-5" />
-            </span>
-          </div> */}
-
           <h1 className="mb-6 text-5xl font-extrabold leading-[1.05] tracking-tight xl:text-6xl">
             Precision Fleet
             <br />
@@ -57,7 +85,7 @@ export default function LoginPage() {
             </p>
           </header>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={onSubmit}>
             <label className="block space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#596072]">
                 Email Address
@@ -67,6 +95,9 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   placeholder="name@email.com"
                   className="w-full rounded-lg bg-[#e4eafc] py-3 pl-10 pr-4 text-base text-[#1f2637] placeholder:text-[#97a2b8] outline-none ring-[#0c49a6] transition focus:ring-2"
                 />
@@ -75,23 +106,18 @@ export default function LoginPage() {
             </label>
 
             <label className="block space-y-2">
-              <span className="flex items-center justify-between gap-3">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#596072]">
-                  Security Key
-                </span>
-                <Link
-                  href="#"
-                  className="text-xs font-bold text-[#0c49a6] transition-opacity hover:opacity-80"
-                >
-                  Forgot Password?
-                </Link>
+              <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#596072]">
+                Security Key
               </span>
-
               <div className="group relative">
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8691a5]" />
                 <input
                   id="password"
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
                   placeholder="••••••••"
                   className="w-full rounded-lg bg-[#e4eafc] py-3 pl-10 pr-4 text-base text-[#1f2637] placeholder:text-[#97a2b8] outline-none ring-[#0c49a6] transition focus:ring-2"
                 />
@@ -103,16 +129,26 @@ export default function LoginPage() {
               <input
                 id="remember"
                 type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
                 className="h-4 w-4 rounded border-[#b2bbce] text-[#0c49a6] accent-[#0c49a6]"
               />
               Remember me
             </label>
 
+            {errorMessage ? (
+              <p className="rounded-md bg-[#ffe8e8] px-3 py-2 text-sm font-medium text-[#a82121]">
+                {errorMessage}
+              </p>
+            ) : null}
+
             <button
-              type="button"
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0c49a6] px-5 py-3 text-lg font-bold text-white shadow-lg shadow-[#1a4ea8]/20 transition hover:bg-[#0f56be] active:scale-[0.99]"
+              type="submit"
+              disabled={isSubmitting}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0c49a6] px-5 py-3 text-lg font-bold text-white shadow-lg shadow-[#1a4ea8]/20 transition hover:bg-[#0f56be] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Log In <ArrowRight className="h-5 w-5" />
+              {isSubmitting ? "Signing In..." : "Log In"}
+              <ArrowRight className="h-5 w-5" />
             </button>
           </form>
 

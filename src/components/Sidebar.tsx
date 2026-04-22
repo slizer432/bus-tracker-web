@@ -4,6 +4,8 @@ import Link from "next/link";
 import { BusFront, LayoutDashboard, Route, Wrench } from "lucide-react";
 import { usePathname } from "next/navigation";
 
+type SidebarRole = "admin" | "user";
+
 const navItems = [
   {
     name: "Dashboard",
@@ -24,11 +26,15 @@ const navItems = [
     name: "Admin",
     href: "/admin",
     icon: Wrench,
+    requiresAdmin: true,
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ role }: { role: SidebarRole }) {
   const pathname = usePathname();
+  const visibleItems = navItems.filter(
+    (item) => !item.requiresAdmin || role === "admin",
+  );
 
   return (
     <aside className="hidden md:flex h-screen w-64 flex-col bg-[#f1f3ff] py-8 px-4 transition-all duration-300 ease-in-out border-r border-[#dbe2f9]">
@@ -47,7 +53,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-2">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive =
             item.href === "/"

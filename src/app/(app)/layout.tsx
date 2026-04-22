@@ -1,11 +1,24 @@
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { ReactNode } from "react";
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  const role = session.user.role === "admin" ? "admin" : "user";
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <Sidebar role={role} />
       <div className="flex flex-1 flex-col">
         <Navbar />
         <main className="flex-1 overflow-auto p-6">{children}</main>

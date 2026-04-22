@@ -1,8 +1,9 @@
 "use client";
 
+import { authClient } from "@/lib/auth-client";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, Settings, UserCircle2 } from "lucide-react";
 
@@ -10,13 +11,11 @@ const navItems = [{ name: "Fleet Status", href: "/fleet" }];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const isLoggedIn =
-    typeof window !== "undefined" &&
-    (Boolean(window.localStorage.getItem("authToken")) ||
-      window.localStorage.getItem("isLoggedIn") === "true");
+  const { data: session } = authClient.useSession();
+  const isLoggedIn = Boolean(session);
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
@@ -36,10 +35,11 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogout = () => {
-    window.localStorage.removeItem("authToken");
-    window.localStorage.removeItem("isLoggedIn");
+  const handleLogout = async () => {
+    await authClient.signOut();
     setIsMenuOpen(false);
+    router.push("/login");
+    router.refresh();
   };
 
   return (
