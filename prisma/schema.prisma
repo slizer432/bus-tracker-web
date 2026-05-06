@@ -12,6 +12,36 @@ datasource db {
   provider = "postgresql"
 }
 
+enum BusOperationalStatus {
+  ACTIVE
+  REPAIR
+  STANDBY
+}
+
+enum BusServiceStatus {
+  NORMAL
+  WARNING
+  DELAYED
+}
+
+enum RouteStatus {
+  ON_SCHEDULE
+  MINOR_DELAYS
+  DELAYED
+}
+
+enum RouteConfigStatus {
+  ACTIVE
+  DRAFT
+  INACTIVE
+}
+
+enum ScheduleType {
+  WEEKDAYS
+  DAILY
+  PEAK
+}
+
 model User {
   id            String    @id
   name          String
@@ -69,4 +99,35 @@ model Verification {
   updatedAt  DateTime?
 
   @@map("verification")
+}
+
+model Route {
+  id           String            @id @default(cuid())
+  code         String            @unique
+  name         String
+  direction    String
+  coverage     String
+  status       RouteStatus       @default(ON_SCHEDULE)
+  configStatus RouteConfigStatus @default(ACTIVE)
+  scheduleType ScheduleType      @default(WEEKDAYS)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  buses        Bus[]
+}
+
+model Bus {
+  id           String              @id @default(cuid())
+  fleetCode    String              @unique
+  model        String
+  capacity     Int
+  status       BusOperationalStatus @default(ACTIVE)
+  serviceStatus BusServiceStatus    @default(NORMAL)
+  etaMinutes   Int?
+  lastStop     String?
+  passengers   Int                @default(0)
+  heading      String             @default("Unknown")
+  routeId      String?
+  route        Route?              @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 }

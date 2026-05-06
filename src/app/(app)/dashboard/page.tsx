@@ -1,85 +1,12 @@
 import BusCard from "@/components/BusCard";
+import { getBusCards, getFleetSummary } from "@/lib/data/buses";
 
-const fleetCards = [
-  {
-    route: "Route 101",
-    eta: "5 mins",
-    lastStop: "Oak Street Station",
-    passengers: 24,
-    capacity: 40,
-    heading: "Northbound",
-    status: "normal" as const,
-  },
-  {
-    route: "Route 402",
-    eta: "12 mins",
-    lastStop: "Market Terminal",
-    passengers: 38,
-    capacity: 40,
-    heading: "Westbound",
-    status: "delayed" as const,
-  },
-  {
-    route: "Route 205",
-    eta: "2 mins",
-    lastStop: "Central Plaza",
-    passengers: 12,
-    capacity: 40,
-    heading: "Southbound",
-    status: "warning" as const,
-  },
-  {
-    route: "Route 108",
-    eta: "8 mins",
-    lastStop: "Heritage Park",
-    passengers: 22,
-    capacity: 40,
-    heading: "Northbound",
-    status: "normal" as const,
-  },
-  {
-    route: "Route 311",
-    eta: "4 mins",
-    lastStop: "River Heights",
-    passengers: 15,
-    capacity: 40,
-    heading: "Eastbound",
-    status: "normal" as const,
-  },
-  {
-    route: "Route 99x",
-    eta: "Delayed",
-    lastStop: "Bayview Harbor",
-    passengers: 32,
-    capacity: 40,
-    heading: "Express North",
-    status: "delayed" as const,
-  },
-  {
-    route: "Route 212",
-    eta: "7 mins",
-    lastStop: "Science District",
-    passengers: 19,
-    capacity: 40,
-    heading: "Southbound",
-    status: "normal" as const,
-  },
-  {
-    route: "Route 005",
-    eta: "1 min",
-    lastStop: "Union Square",
-    passengers: 36,
-    capacity: 40,
-    heading: "Crosstown",
-    status: "warning" as const,
-  },
-];
-
-export default function DashboardPage() {
-  const delayedCount = fleetCards.filter(
-    (bus) => bus.status === "delayed",
-  ).length;
-  const activeCount = fleetCards.length - delayedCount;
+export default async function DashboardPage() {
+  const [fleetCards, summary] = await Promise.all([
+    getBusCards(),
+    getFleetSummary(),
+  ]);
+  const { delayedCount, activeCount } = summary;
 
   return (
     <section className="space-y-6">
@@ -110,18 +37,24 @@ export default function DashboardPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {fleetCards.map((bus) => (
-          <BusCard
-            key={bus.route}
-            route={bus.route}
-            eta={bus.eta}
-            lastStop={bus.lastStop}
-            passengers={bus.passengers}
-            capacity={bus.capacity}
-            heading={bus.heading}
-            status={bus.status}
-          />
-        ))}
+        {fleetCards.length === 0 ? (
+          <div className="rounded-xl border border-[#dbe2f9] bg-white p-6 text-sm font-semibold text-[#586579]">
+            No buses have been added yet.
+          </div>
+        ) : (
+          fleetCards.map((bus) => (
+            <BusCard
+              key={bus.id}
+              route={bus.route}
+              eta={bus.eta}
+              lastStop={bus.lastStop}
+              passengers={bus.passengers}
+              capacity={bus.capacity}
+              heading={bus.heading}
+              status={bus.status}
+            />
+          ))
+        )}
       </div>
     </section>
   );
