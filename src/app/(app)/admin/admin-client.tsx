@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 type AdminTab = "buses" | "routes" | "stops" | "route-stops";
 
 type BusStatus = "ACTIVE" | "REPAIR" | "STANDBY";
-type RouteStatus = "ACTIVE" | "DRAFT" | "INACTIVE";
+type RouteStatus = "ON_SCHEDULE" | "MINOR_DELAYS" | "DELAYED";
 type ScheduleType = "WEEKDAYS" | "DAILY" | "PEAK";
 type SortDirection = "asc" | "desc";
 type BusSortKey = "id" | "model" | "capacity" | "status";
@@ -88,9 +88,9 @@ const busStatusClass: Record<BusStatus, string> = {
 };
 
 const routeStatusClass: Record<RouteStatus, string> = {
-  ACTIVE: "bg-emerald-100 text-emerald-700",
-  DRAFT: "bg-slate-200 text-slate-600",
-  INACTIVE: "bg-rose-100 text-rose-700",
+  ON_SCHEDULE: "bg-emerald-100 text-emerald-700",
+  MINOR_DELAYS: "bg-amber-100 text-amber-700",
+  DELAYED: "bg-rose-100 text-rose-700",
 };
 
 function BusesPanel({
@@ -766,7 +766,7 @@ function RoutesPanel({
     coverage: "",
     direction: "",
     scheduleType: "WEEKDAYS" as ScheduleType,
-    configStatus: "ACTIVE" as RouteStatus,
+    status: "ON_SCHEDULE" as RouteStatus,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -952,6 +952,26 @@ function RoutesPanel({
               </label>
             </div>
           </fieldset>
+
+          <label className="space-y-1.5 md:col-span-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
+              Live Status
+            </span>
+            <select
+              value={formState.status}
+              onChange={(event) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  status: event.target.value as RouteStatus,
+                }))
+              }
+              className="w-full rounded-lg border border-[#c7cfe1] bg-[#eef2ff] px-3 py-2.5 text-sm text-[#1f2633] outline-none ring-[#0a4cad] focus:ring-2"
+            >
+              <option value="ON_SCHEDULE">On Schedule</option>
+              <option value="MINOR_DELAYS">Minor Delays</option>
+              <option value="DELAYED">Delayed</option>
+            </select>
+          </label>
         </div>
 
         {errorMessage ? (
@@ -985,7 +1005,7 @@ function RoutesPanel({
                 coverage: formState.coverage,
                 direction: formState.direction,
                 scheduleType: formState.scheduleType,
-                configStatus: formState.configStatus,
+                status: formState.status,
               }),
             });
 
@@ -1002,7 +1022,7 @@ function RoutesPanel({
               coverage: "",
               direction: "",
               scheduleType: "WEEKDAYS",
-              configStatus: "ACTIVE",
+              status: "ON_SCHEDULE",
             });
             setIsSubmitting(false);
             router.refresh();
@@ -1040,9 +1060,9 @@ function RoutesPanel({
               className="cursor-pointer rounded-md border border-[#d4daea] bg-[#eef2ff] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#485062] outline-none ring-[#0a4cad] focus:ring-2"
             >
               <option value="ALL">All</option>
-              <option value="ACTIVE">Active</option>
-              <option value="DRAFT">Draft</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="ON_SCHEDULE">On Schedule</option>
+              <option value="MINOR_DELAYS">Minor Delays</option>
+              <option value="DELAYED">Delayed</option>
             </select>
 
             <button className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#0a4cad] transition-opacity hover:opacity-80">
@@ -1330,16 +1350,16 @@ function RoutesPanel({
                       prev
                         ? {
                             ...prev,
-                            status: event.target.value as RouteStatus,
-                          }
+                          status: event.target.value as RouteStatus,
+                        }
                         : prev,
                     )
                   }
                   className="w-full rounded-lg border border-[#c7cfe1] bg-[#eef2ff] px-3 py-2 text-sm text-[#1f2633] outline-none ring-[#0a4cad] focus:ring-2"
                 >
-                  <option value="ACTIVE">Active</option>
-                  <option value="DRAFT">Draft</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="ON_SCHEDULE">On Schedule</option>
+                  <option value="MINOR_DELAYS">Minor Delays</option>
+                  <option value="DELAYED">Delayed</option>
                 </select>
               </label>
             </div>
@@ -1368,7 +1388,7 @@ function RoutesPanel({
                         coverage: editRoute.coverage,
                         direction: editRoute.direction,
                         scheduleType: editRoute.scheduleType,
-                        configStatus: editRoute.status,
+                        status: editRoute.status,
                       }),
                     },
                   );

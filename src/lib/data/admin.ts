@@ -17,7 +17,7 @@ export type AdminRouteItem = {
   direction: string;
   coverage: string;
   type: "WEEKDAYS" | "DAILY" | "PEAK";
-  status: "ACTIVE" | "DRAFT" | "INACTIVE";
+  status: "ON_SCHEDULE" | "MINOR_DELAYS" | "DELAYED";
 };
 
 export type AdminStopItem = {
@@ -68,7 +68,7 @@ export async function getAdminRoutes(): Promise<AdminRouteItem[]> {
       coverage: true,
       direction: true,
       scheduleType: true,
-      configStatus: true,
+      status: true,
     },
     orderBy: { code: "asc" },
   });
@@ -81,7 +81,7 @@ export async function getAdminRoutes(): Promise<AdminRouteItem[]> {
     direction: route.direction,
     coverage: route.coverage,
     type: route.scheduleType,
-    status: route.configStatus,
+    status: route.status,
   }));
 }
 
