@@ -23,6 +23,7 @@ type RouteItem = {
   coverage: string;
   status: RouteStatus;
   activeBuses: number;
+  stops: string[];
 };
 
 const statusStyles: Record<RouteStatus, string> = {
@@ -79,6 +80,7 @@ export default function RoutesClientPage({
     coverage: string;
     status: string;
     activeBuses: number;
+    stops: string[];
   }[];
 }) {
   const routes: RouteItem[] = routesData.map((route) => ({
@@ -88,12 +90,14 @@ export default function RoutesClientPage({
     coverage: route.coverage,
     status: statusMap[route.status] ?? "on-schedule",
     activeBuses: route.activeBuses,
+    stops: route.stops,
   }));
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<RouteFilter>("all");
   const [sortKey, setSortKey] = useState<RouteSortKey>("id");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [viewingRoute, setViewingRoute] = useState<RouteItem | null>(null);
 
   const handleSort = (key: RouteSortKey) => {
     if (sortKey === key) {
@@ -281,6 +285,7 @@ export default function RoutesClientPage({
                       <div className="inline-flex items-center gap-1">
                         <button
                           aria-label={`View route ${route.id}`}
+                          onClick={() => setViewingRoute(route)}
                           className="cursor-pointer rounded-lg p-2 text-[#0040a1] transition-colors hover:bg-[#eaf0ff]"
                         >
                           <Eye className="h-4 w-4" />
@@ -342,6 +347,7 @@ export default function RoutesClientPage({
               <div className="mt-2 flex justify-end gap-2">
                 <button
                   aria-label={`View route ${route.id}`}
+                  onClick={() => setViewingRoute(route)}
                   className="cursor-pointer rounded-lg bg-white p-2 text-[#0040a1] ring-1 ring-[#dbe2f9]"
                 >
                   <Eye className="h-4 w-4" />
@@ -388,6 +394,70 @@ export default function RoutesClientPage({
           </div>
         </div>
       </div>
+
+      {viewingRoute ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#586579]">
+                  Route {viewingRoute.id}
+                </p>
+                <h3 className="text-2xl font-extrabold text-[#1f2633]">
+                  {viewingRoute.name}
+                </h3>
+                <p className="text-sm text-[#586579]">{viewingRoute.coverage}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingRoute(null)}
+                className="rounded-lg border border-[#d4daea] px-3 py-1.5 text-sm font-semibold text-[#485062]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-[#dbe2f9] bg-[#f8faff] p-4">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-[#586579]">
+                Route Stops
+              </p>
+              {viewingRoute.stops.length === 0 ? (
+                <p className="text-sm font-medium text-[#737785]">
+                  No stops assigned to this route yet.
+                </p>
+              ) : (
+                <div className="overflow-x-auto pb-2">
+                  <div className="min-w-max px-1 py-3">
+                    <div className="relative flex items-start gap-0">
+                      {viewingRoute.stops.map((stop, index) => {
+                        const isLast = index === viewingRoute.stops.length - 1;
+                        return (
+                          <div
+                            key={`${viewingRoute.id}-${stop}-${index}`}
+                            className="relative flex items-start"
+                          >
+                            <div className="flex w-40 flex-col items-center text-center">
+                              <span className="mb-2 line-clamp-2 min-h-10 text-xs font-semibold text-[#1f2633]">
+                                {stop}
+                              </span>
+                              <span className="z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#0040a1] text-xs font-bold text-white shadow-sm">
+                                {index + 1}
+                              </span>
+                            </div>
+                            {!isLast ? (
+                              <span className="mt-[2.9rem] block h-1 w-16 rounded-full bg-[#c8d8ff]" />
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

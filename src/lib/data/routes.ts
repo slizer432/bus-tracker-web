@@ -9,6 +9,19 @@ export async function getRoutesOverview() {
       direction: true,
       status: true,
       coverage: true,
+      stops: {
+        select: {
+          order: true,
+          stop: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          order: "asc",
+        },
+      },
       buses: {
         where: { status: "ACTIVE" },
         select: { id: true },
@@ -24,5 +37,6 @@ export async function getRoutesOverview() {
     coverage: route.coverage,
     status: route.status,
     activeBuses: route.buses.length,
+    stops: route.stops.map((item) => item.stop.name),
   }));
 }

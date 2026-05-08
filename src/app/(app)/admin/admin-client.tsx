@@ -3,6 +3,7 @@
 import {
   ArrowUpDown,
   Bus,
+  Check,
   Download,
   ListFilter,
   Map,
@@ -1908,7 +1909,6 @@ function RouteStopsPanel({
   const router = useRouter();
   const [selectedRouteId, setSelectedRouteId] = useState("");
   const [selectedStopIds, setSelectedStopIds] = useState<string[]>([]);
-  const [orderValue, setOrderValue] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [orderedStops, setOrderedStops] = useState<RouteStopItem[]>([]);
   const [originalOrder, setOriginalOrder] = useState<Record<string, number>>(
@@ -1921,6 +1921,13 @@ function RouteStopsPanel({
   const filteredRouteStops = useMemo(() => {
     if (!selectedRouteId) {
       return routeStops;
+    }
+    return routeStops.filter((item) => item.routeId === selectedRouteId);
+  }, [routeStops, selectedRouteId]);
+
+  const selectedRouteStops = useMemo(() => {
+    if (!selectedRouteId) {
+      return [] as RouteStopItem[];
     }
     return routeStops.filter((item) => item.routeId === selectedRouteId);
   }, [routeStops, selectedRouteId]);
@@ -1953,6 +1960,21 @@ function RouteStopsPanel({
     return orderedStops.some((item, index) => item.order !== index + 1);
   }, [orderedStops]);
 
+  const assignedStopIds = useMemo(() => {
+    return new Set(selectedRouteStops.map((item) => item.stopId));
+  }, [selectedRouteStops]);
+
+  const nextOrder = useMemo(() => {
+    if (selectedRouteStops.length === 0) {
+      return 1;
+    }
+    const maxOrder = selectedRouteStops.reduce(
+      (max, item) => Math.max(max, item.order),
+      0,
+    );
+    return maxOrder + 1;
+  }, [selectedRouteStops]);
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-[#cfd4e2] bg-white p-5 shadow-sm sm:p-6">
@@ -1963,7 +1985,7 @@ function RouteStopsPanel({
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="space-y-1.5">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
               Route
@@ -1981,42 +2003,50 @@ function RouteStopsPanel({
               ))}
             </select>
           </label>
-          <label className="space-y-1.5">
+          <div className="space-y-1.5">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
               Stops
             </span>
-            <select
-              multiple
-              value={selectedStopIds}
-              onChange={(event) => {
-                const values = Array.from(event.target.selectedOptions).map(
-                  (option) => option.value,
+            <div className="h-44 space-y-2 overflow-auto rounded-lg border border-[#c7cfe1] bg-[#eef2ff] p-2">
+              {stops.map((stop) => {
+                const selected = selectedStopIds.includes(stop.id);
+                const alreadyAssigned = assignedStopIds.has(stop.id);
+                return (
+                  <button
+                    key={stop.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedStopIds((prev) =>
+                        prev.includes(stop.id)
+                          ? prev.filter((id) => id !== stop.id)
+                          : [...prev, stop.id],
+                      )
+                    }
+                    className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                      selected
+                        ? "border-[#0a4cad] bg-white text-[#1f2633]"
+                        : "border-transparent bg-white/70 text-[#3d4558] hover:border-[#c7cfe1]"
+                    }`}
+                  >
+                    <span>{stop.name}</span>
+                    {selected ? (
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0a4cad] text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    ) : null}
+                    {alreadyAssigned ? (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                        Assigned
+                      </span>
+                    ) : null}
+                  </button>
                 );
-                setSelectedStopIds(values);
-              }}
-              className="h-32 w-full rounded-lg border border-[#c7cfe1] bg-[#eef2ff] px-3 py-2 text-sm text-[#1f2633] outline-none ring-[#0a4cad] focus:ring-2"
-            >
-              {stops.map((stop) => (
-                <option key={stop.id} value={stop.id}>
-                  {stop.name}
-                </option>
-              ))}
-            </select>
+              })}
+            </div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#737b8c]">
-              Hold Ctrl/Cmd to select multiple
+              Next order starts at {nextOrder}
             </p>
-          </label>
-          <label className="space-y-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#586579]">
-              Start Order
-            </span>
-            <input
-              type="number"
-              value={orderValue}
-              onChange={(event) => setOrderValue(event.target.value)}
-              className="w-full rounded-lg border border-[#c7cfe1] bg-[#eef2ff] px-3 py-2 text-sm text-[#1f2633] outline-none ring-[#0a4cad] focus:ring-2"
-            />
-          </label>
+          </div>
         </div>
 
         {errorMessage ? (
@@ -2029,23 +2059,31 @@ function RouteStopsPanel({
           type="button"
           onClick={async () => {
             setErrorMessage(null);
-            if (!selectedRouteId || selectedStopIds.length === 0 || !orderValue) {
-              setErrorMessage("Please select route, stops, and order.");
+            if (!selectedRouteId || selectedStopIds.length === 0) {
+              setErrorMessage("Please select route and at least one stop.");
               return;
             }
-            const order = Number(orderValue);
-            if (!Number.isFinite(order) || order <= 0) {
-              setErrorMessage("Order must be a positive number.");
-              return;
+            const selectedAssigned = selectedStopIds.filter((id) =>
+              assignedStopIds.has(id),
+            );
+            if (selectedAssigned.length > 0) {
+              setErrorMessage(
+                "Some selected stops are already assigned to this route and were skipped.",
+              );
             }
-            for (const [index, stopId] of selectedStopIds.entries()) {
+
+            const pendingStopIds = selectedStopIds.filter(
+              (id) => !assignedStopIds.has(id),
+            );
+
+            for (const [index, stopId] of pendingStopIds.entries()) {
               const response = await fetch("/api/admin/route-stops", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   routeId: selectedRouteId,
                   stopId,
-                  order: order + index,
+                  order: nextOrder + index,
                 }),
               });
               if (!response.ok) {
@@ -2057,7 +2095,6 @@ function RouteStopsPanel({
               }
             }
             setSelectedStopIds([]);
-            setOrderValue("");
             router.refresh();
           }}
           className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#0a4cad] px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
