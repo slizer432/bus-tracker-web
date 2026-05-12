@@ -11,20 +11,31 @@ export type BusCardSummary = {
   status: "normal" | "warning" | "delayed";
 };
 
-export async function getBusCards() {
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+type RouteStopScheduleItem = {
+  routeId: string;
+  stopId: string;
+  order: number;
+  schedule: string;
+  stop: { name: string };
+};
 
-  const [buses, routeStops, stopList, recentEvents] = await Promise.all([
+export async function getBusCards() {
+  const [buses, routeStops] = await Promise.all([
     prisma.bus.findMany({
-      include: {
+      select: {
+        id: true,
+        routeId: true,
         route: {
           select: {
             name: true,
           },
         },
+        status: true,
+        passengers: true,
+        capacity: true,
         state: {
           select: {
+            lastStopId: true,
             lastStop: { select: { name: true } },
             destination: { select: { name: true } },
           },
@@ -33,191 +44,89 @@ export async function getBusCards() {
       orderBy: { updatedAt: "desc" },
     }),
     prisma.routeStop.findMany({
-      select: { routeId: true, stopId: true, order: true },
-      orderBy: [{ routeId: "asc" }, { order: "asc" }],
-    }),
-    prisma.stop.findMany({
-      select: { id: true, name: true },
-    }),
-    prisma.busEvent.findMany({
-      where: {
-        type: "RFID_STOP",
-        createdAt: { gte: sevenDaysAgo },
-      },
       select: {
-        busId: true,
+        routeId: true,
         stopId: true,
-        createdAt: true,
-        bus: { select: { routeId: true } },
+        order: true,
+        schedule: true,
+        stop: { select: { name: true } },
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ routeId: "asc" }, { order: "asc" }],
     }),
   ]);
 
-  const stopNameById = new Map(stopList.map((stop) => [stop.id, stop.name]));
-
-  const routeStopsByRoute = new Map<string, string[]>();
+  const routeStopsByRoute = new Map<string, RouteStopScheduleItem[]>();
   routeStops.forEach((item) => {
     const list = routeStopsByRoute.get(item.routeId) ?? [];
-    list.push(item.stopId);
+    list.push(item);
     routeStopsByRoute.set(item.routeId, list);
   });
 
-  const eventsByBus = new Map<string, { stopId: string | null; createdAt: Date; routeId: string | null }[]>();
-  recentEvents.forEach((event) => {
-    const list = eventsByBus.get(event.busId) ?? [];
-    list.push({
-      stopId: event.stopId,
-      createdAt: event.createdAt,
-      routeId: event.bus.routeId ?? null,
-    });
-    eventsByBus.set(event.busId, list);
-  });
-
-  const segmentDurations = new Map<string, number[]>();
-  eventsByBus.forEach((events) => {
-    const sorted = [...events].sort(
-      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
-    );
-    for (let i = 0; i < sorted.length - 1; i += 1) {
-      const current = sorted[i];
-      const next = sorted[i + 1];
-      if (!current.routeId || current.routeId !== next.routeId) {
-        continue;
-      }
-      if (!current.stopId || !next.stopId) {
-        continue;
-      }
-      const routeStopsList = routeStopsByRoute.get(current.routeId);
-      if (!routeStopsList || routeStopsList.length === 0) {
-        continue;
-      }
-      const currentIndex = routeStopsList.indexOf(current.stopId);
-      if (currentIndex === -1) {
-        continue;
-      }
-      const expectedNextStopId =
-        routeStopsList[(currentIndex + 1) % routeStopsList.length];
-      if (expectedNextStopId !== next.stopId) {
-        continue;
-      }
-      const minutes =
-        (next.createdAt.getTime() - current.createdAt.getTime()) / 60000;
-      if (minutes < 0.5 || minutes > 60) {
-        continue;
-      }
-      const key = `${current.routeId}:${current.stopId}->${next.stopId}`;
-      const list = segmentDurations.get(key) ?? [];
-      list.push(minutes);
-      segmentDurations.set(key, list);
-    }
-  });
-
-  const medianMinutesBySegment = new Map<string, number>();
-  segmentDurations.forEach((list, key) => {
-    const sorted = [...list].sort((a, b) => a - b);
-    const middle = Math.floor(sorted.length / 2);
-    const median =
-      sorted.length % 2 === 0
-        ? (sorted[middle - 1] + sorted[middle]) / 2
-        : sorted[middle];
-    medianMinutesBySegment.set(key, median);
-  });
-
-  const etaByBusId = new Map<string, number>();
-  const arrivalTimeByBusId = new Map<string, string>();
-  const lastStopNameByBusId = new Map<string, string>();
-
-  eventsByBus.forEach((events, busId) => {
-    const latest = events.reduce((acc, item) =>
-      item.createdAt > acc.createdAt ? item : acc,
-    );
-    if (!latest.routeId || !latest.stopId) {
-      return;
-    }
-    const routeStopsList = routeStopsByRoute.get(latest.routeId);
-    if (!routeStopsList || routeStopsList.length === 0) {
-      return;
-    }
-    const currentIndex = routeStopsList.indexOf(latest.stopId);
-    if (currentIndex === -1) {
-      return;
-    }
-    const nextStopId = routeStopsList[(currentIndex + 1) % routeStopsList.length];
-    const segmentKey = `${latest.routeId}:${latest.stopId}->${nextStopId}`;
-    const etaMinutes = medianMinutesBySegment.get(segmentKey);
-    if (typeof etaMinutes === "number") {
-      const rounded = Math.max(1, Math.round(etaMinutes));
-      etaByBusId.set(busId, rounded);
-      const arrival = new Date(latest.createdAt.getTime() + rounded * 60000);
-      arrivalTimeByBusId.set(
-        busId,
-        arrival.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      );
-    }
-    const stopName = stopNameById.get(latest.stopId);
-    if (stopName) {
-      lastStopNameByBusId.set(busId, stopName);
-    }
-  });
-
   return buses.map<BusCardSummary>((bus) => {
-    const computedEta = etaByBusId.get(bus.id);
-    const nextArrivalText =
-      arrivalTimeByBusId.get(bus.id) ??
-      (typeof computedEta === "number"
-        ? new Date(now.getTime() + computedEta * 60000).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : typeof bus.etaMinutes === "number"
-          ? new Date(now.getTime() + bus.etaMinutes * 60000).toLocaleTimeString(
-              [],
-              { hour: "2-digit", minute: "2-digit" },
-            )
-          : "Delayed");
-    const statusLabel = bus.serviceStatus.toLowerCase() as
-      | "normal"
-      | "warning"
-      | "delayed";
+    const routeSchedule = bus.routeId
+      ? routeStopsByRoute.get(bus.routeId) ?? []
+      : [];
+
+    const currentLastStopId = bus.state?.lastStopId ?? null;
+    const currentLastStopName = bus.state?.lastStop?.name ?? "Unknown";
+
+    let nextArrival = "--:--";
+    let nextStopName = bus.state?.destination?.name ?? "Unknown";
+
+    if (routeSchedule.length > 0) {
+      const currentIndex = currentLastStopId
+        ? routeSchedule.findIndex((item) => item.stopId === currentLastStopId)
+        : -1;
+
+      const nextIndex =
+        currentIndex >= 0
+          ? (currentIndex + 1) % routeSchedule.length
+          : 0;
+
+      const nextStop = routeSchedule[nextIndex];
+      nextArrival = nextStop.schedule;
+      if (!bus.state?.destination?.name) {
+        nextStopName = nextStop.stop.name;
+      }
+    }
+
+    const status: BusCardSummary["status"] =
+      bus.status === "REPAIR"
+        ? "warning"
+        : bus.status === "STANDBY"
+          ? "delayed"
+          : "normal";
 
     return {
       id: bus.id,
       route: bus.route?.name ?? "Unassigned",
-      nextArrival: nextArrivalText,
-      lastStop:
-        bus.state?.lastStop?.name ??
-        lastStopNameByBusId.get(bus.id) ??
-        bus.lastStop ??
-        "Unknown",
+      nextArrival,
+      lastStop: currentLastStopName,
       passengers: bus.passengers,
       capacity: bus.capacity,
-      heading: bus.state?.destination?.name ?? bus.heading,
-      status: statusLabel,
+      heading: nextStopName,
+      status,
     };
   });
 }
 
 export async function getFleetSummary() {
   const counts = await prisma.bus.groupBy({
-    by: ["serviceStatus"],
-    _count: { serviceStatus: true },
+    by: ["status"],
+    _count: { status: true },
   });
+
+  const activeCount = counts.reduce(
+    (total, item) =>
+      item.status === "ACTIVE" ? total + item._count.status : total,
+    0,
+  );
 
   const delayedCount = counts.reduce(
     (total, item) =>
-      item.serviceStatus === "DELAYED"
-        ? total + item._count.serviceStatus
-        : total,
+      item.status !== "ACTIVE" ? total + item._count.status : total,
     0,
   );
-
-  const totalCount = counts.reduce(
-    (total, item) => total + item._count.serviceStatus,
-    0,
-  );
-
-  const activeCount = Math.max(0, totalCount - delayedCount);
 
   return {
     delayedCount,
