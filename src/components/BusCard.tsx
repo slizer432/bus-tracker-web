@@ -6,12 +6,14 @@ type BusCardProps = {
   lastStop: string;
   passengers: number;
   capacity: number;
+  busId: string;
   heading: string;
   status?: BusStatus;
 };
 
 export default function BusCard({
   route,
+  busId: busName,
   nextArrival,
   lastStop,
   passengers,
@@ -33,7 +35,6 @@ export default function BusCard({
       ? "bg-[#d6e3fb] text-[#3b485a]"
       : "bg-[#dae2ff] text-[#001847]";
 
-  const etaClass = isDelayed ? "text-[#930002]" : "text-[#0040a1]";
   const progressClass = isDelayed ? "bg-[#bc140d]" : "bg-[#0056d2]";
 
   return (
@@ -44,9 +45,11 @@ export default function BusCard({
         >
           {route}
         </span>
-        {/* <span className={`text-2xl font-extrabold tracking-tight ${etaClass}`}>
-          {nextArrival}
-        </span> */}
+        <span
+          className={`text-2xl font-extrabold tracking-tight ${isDelayed ? "text-[#930002]" : "text-[#0040a1]"}`}
+        >
+          {busName}
+        </span>
       </div>
 
       <div className="mb-4">

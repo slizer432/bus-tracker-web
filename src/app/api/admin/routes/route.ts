@@ -25,14 +25,10 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     code?: string;
     name?: string;
-    coverage?: string;
-    direction?: string;
-    scheduleType?: "WEEKDAYS" | "DAILY" | "PEAK";
-    configStatus?: "ACTIVE" | "DRAFT" | "INACTIVE";
     status?: "ON_SCHEDULE" | "MINOR_DELAYS" | "DELAYED";
   };
 
-  if (!body.code || !body.name || !body.coverage || !body.direction) {
+  if (!body.code || !body.name) {
     await logAuditEvent({
       action: "ROUTE_CREATE",
       entity: "route",
@@ -51,10 +47,6 @@ export async function POST(request: Request) {
       data: {
         code: body.code,
         name: body.name,
-        coverage: body.coverage,
-        direction: body.direction,
-        scheduleType: body.scheduleType ?? "WEEKDAYS",
-        configStatus: body.configStatus ?? "ACTIVE",
         status: body.status ?? "ON_SCHEDULE",
       },
     });

@@ -24,12 +24,11 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     name?: string;
-    rfidTag?: string;
     lat?: number;
     lng?: number;
   };
 
-  if (!body.name || !body.rfidTag || body.lat === undefined || body.lng === undefined) {
+  if (!body.name || body.lat === undefined || body.lng === undefined) {
     await logAuditEvent({
       action: "STOP_CREATE",
       entity: "stop",
@@ -47,7 +46,6 @@ export async function POST(request: Request) {
     const stop = await prisma.stop.create({
       data: {
         name: body.name,
-        rfidTag: body.rfidTag,
         lat: body.lat,
         lng: body.lng,
       },
@@ -62,7 +60,7 @@ export async function POST(request: Request) {
       actorRole: session.user.role,
       ipAddress,
       userAgent,
-      details: { name: stop.name, rfidTag: stop.rfidTag },
+      details: { name: stop.name },
     });
 
     return NextResponse.json(stop);

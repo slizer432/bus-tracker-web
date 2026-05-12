@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type BusCardSummary = {
   id: string;
   route: string;
+  busCode: string;
   nextArrival: string;
   lastStop: string;
   passengers: number;
@@ -24,6 +25,7 @@ export async function getBusCards() {
     prisma.bus.findMany({
       select: {
         id: true,
+        fleetCode: true,
         routeId: true,
         route: {
           select: {
@@ -64,11 +66,12 @@ export async function getBusCards() {
 
   return buses.map<BusCardSummary>((bus) => {
     const routeSchedule = bus.routeId
-      ? routeStopsByRoute.get(bus.routeId) ?? []
+      ? (routeStopsByRoute.get(bus.routeId) ?? [])
       : [];
 
     const currentLastStopId = bus.state?.lastStopId ?? null;
     const currentLastStopName = bus.state?.lastStop?.name ?? "Unknown";
+    const busCode = bus.fleetCode ?? "N/A";
 
     let nextArrival = "--:--";
     let nextStopName = bus.state?.destination?.name ?? "Unknown";
@@ -79,9 +82,7 @@ export async function getBusCards() {
         : -1;
 
       const nextIndex =
-        currentIndex >= 0
-          ? (currentIndex + 1) % routeSchedule.length
-          : 0;
+        currentIndex >= 0 ? (currentIndex + 1) % routeSchedule.length : 0;
 
       const nextStop = routeSchedule[nextIndex];
       nextArrival = nextStop.schedule;
@@ -102,6 +103,7 @@ export async function getBusCards() {
       route: bus.route?.name ?? "Unassigned",
       nextArrival,
       lastStop: currentLastStopName,
+      busCode: busCode,
       passengers: bus.passengers,
       capacity: bus.capacity,
       heading: nextStopName,

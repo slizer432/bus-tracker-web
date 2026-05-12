@@ -43,22 +43,22 @@ async function main() {
 
   const stops = await Promise.all([
     prisma.stop.create({
-      data: { name: "Terminal A", rfidTag: "RFID-001", lat: -6.2, lng: 106.8167 },
+      data: { name: "Terminal A", lat: -6.2, lng: 106.8167 },
     }),
     prisma.stop.create({
-      data: { name: "Central Station", rfidTag: "RFID-002", lat: -6.1901, lng: 106.82 },
+      data: { name: "Central Station", lat: -6.1901, lng: 106.82 },
     }),
     prisma.stop.create({
-      data: { name: "City Mall", rfidTag: "RFID-003", lat: -6.1822, lng: 106.83 },
+      data: { name: "City Mall", lat: -6.1822, lng: 106.83 },
     }),
     prisma.stop.create({
-      data: { name: "University Gate", rfidTag: "RFID-004", lat: -6.1725, lng: 106.835 },
+      data: { name: "University Gate", lat: -6.1725, lng: 106.835 },
     }),
     prisma.stop.create({
-      data: { name: "North Park", rfidTag: "RFID-005", lat: -6.1655, lng: 106.842 },
+      data: { name: "North Park", lat: -6.1655, lng: 106.842 },
     }),
     prisma.stop.create({
-      data: { name: "South Hub", rfidTag: "RFID-006", lat: -6.225, lng: 106.81 },
+      data: { name: "South Hub", lat: -6.225, lng: 106.81 },
     }),
   ]);
 
@@ -66,10 +66,6 @@ async function main() {
     data: {
       code: "101",
       name: "Downtown Loop",
-      direction: "Clockwise",
-      coverage: "Terminal A -> Central -> Mall -> University",
-      scheduleType: "DAILY",
-      configStatus: "ACTIVE",
       status: "ON_SCHEDULE",
     },
   });
@@ -78,10 +74,6 @@ async function main() {
     data: {
       code: "202",
       name: "South Connector",
-      direction: "Bidirectional",
-      coverage: "South Hub -> Terminal A -> North Park",
-      scheduleType: "WEEKDAYS",
-      configStatus: "ACTIVE",
       status: "MINOR_DELAYS",
     },
   });
@@ -101,6 +93,7 @@ async function main() {
   const busA = await prisma.bus.create({
     data: {
       fleetCode: "B-101",
+      rfidTag: "BUS-RFID-101",
       model: "Hino RK8",
       capacity: 40,
       status: "ACTIVE",
@@ -116,6 +109,7 @@ async function main() {
   const busB = await prisma.bus.create({
     data: {
       fleetCode: "B-202",
+      rfidTag: "BUS-RFID-202",
       model: "Mercedes OH 1526",
       capacity: 36,
       status: "ACTIVE",
@@ -169,7 +163,7 @@ async function main() {
         busId: busA.id,
         type: "RFID_STOP",
         stopId: stop.id,
-        rfidTag: stop.rfidTag,
+        rfidTag: busA.rfidTag,
         createdAt: minutesAfter(currentMinute),
       });
     });
@@ -184,7 +178,7 @@ async function main() {
         busId: busB.id,
         type: "RFID_STOP",
         stopId: stop.id,
-        rfidTag: stop.rfidTag,
+        rfidTag: busB.rfidTag,
         createdAt: minutesAfter(currentMinute),
       });
     });

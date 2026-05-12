@@ -31,27 +31,8 @@ export async function PATCH(
   const body = (await request.json()) as {
     code?: string;
     name?: string;
-    coverage?: string;
-    direction?: string;
-    scheduleType?: "WEEKDAYS" | "DAILY" | "PEAK";
-    configStatus?: "ACTIVE" | "DRAFT" | "INACTIVE";
     status?: "ON_SCHEDULE" | "MINOR_DELAYS" | "DELAYED";
   };
-
-  if (body.direction === undefined) {
-    await logAuditEvent({
-      action: "ROUTE_UPDATE",
-      entity: "route",
-      entityId: routeId,
-      status: "FAILED",
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      ipAddress,
-      userAgent,
-      details: { reason: "MISSING_DIRECTION", body },
-    });
-    return NextResponse.json({ error: "Missing direction" }, { status: 400 });
-  }
 
   try {
     const route = await prisma.route.update({
@@ -59,10 +40,6 @@ export async function PATCH(
       data: {
         code: body.code,
         name: body.name,
-        coverage: body.coverage,
-        direction: body.direction,
-        scheduleType: body.scheduleType,
-        configStatus: body.configStatus,
         status: body.status,
       },
     });

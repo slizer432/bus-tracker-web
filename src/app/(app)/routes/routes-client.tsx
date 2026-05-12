@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Eye,
   MoreVertical,
-  Plus,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -19,8 +18,6 @@ type SortDirection = "asc" | "desc";
 type RouteItem = {
   id: string;
   name: string;
-  direction: string;
-  coverage: string;
   status: RouteStatus;
   activeBuses: number;
   stops: { name: string; schedule: string }[];
@@ -76,8 +73,6 @@ export default function RoutesClientPage({
   routesData: {
     id: string;
     name: string;
-    direction: string;
-    coverage: string;
     status: string;
     activeBuses: number;
     stops: { name: string; schedule: string }[];
@@ -86,8 +81,6 @@ export default function RoutesClientPage({
   const routes: RouteItem[] = routesData.map((route) => ({
     id: route.id,
     name: route.name,
-    direction: route.direction,
-    coverage: route.coverage,
     status: statusMap[route.status] ?? "on-schedule",
     activeBuses: route.activeBuses,
     stops: route.stops,
@@ -113,7 +106,7 @@ export default function RoutesClientPage({
     const filtered = routes.filter((route) => {
       const bySearch =
         searchQuery.trim() === "" ||
-        `${route.id} ${route.name} ${route.direction} ${route.coverage}`
+        `${route.id} ${route.name}`
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
       const byStatus = statusFilter === "all" || route.status === statusFilter;
@@ -179,13 +172,6 @@ export default function RoutesClientPage({
             ))}
           </select>
 
-          {/* <button
-            type="button"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#0040a1] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            New Route
-          </button> */}
         </div>
       </header>
 
@@ -264,9 +250,7 @@ export default function RoutesClientPage({
                           <p className="font-bold text-[#1f2633]">
                             {route.name}
                           </p>
-                          <p className="text-xs text-[#737785]">
-                            {route.coverage}
-                          </p>
+                          <p className="text-xs text-[#737785]">{route.name}</p>
                         </div>
                       </div>
                     </td>
@@ -330,7 +314,7 @@ export default function RoutesClientPage({
                   <h2 className="text-lg font-extrabold text-[#1f2633]">
                     {route.name}
                   </h2>
-                  <p className="text-xs text-[#737785]">{route.coverage}</p>
+                  <p className="text-xs text-[#737785]">{route.name}</p>
                 </div>
                 <RouteStatusBadge status={route.status} />
               </div>
@@ -406,9 +390,7 @@ export default function RoutesClientPage({
                 <h3 className="text-2xl font-extrabold text-[#1f2633]">
                   {viewingRoute.name}
                 </h3>
-                <p className="text-sm text-[#586579]">
-                  {viewingRoute.coverage}
-                </p>
+                <p className="text-sm text-[#586579]">{viewingRoute.name}</p>
               </div>
               <button
                 type="button"

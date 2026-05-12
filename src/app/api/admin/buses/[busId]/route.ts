@@ -30,6 +30,7 @@ export async function PATCH(
 
   const body = (await request.json()) as {
     fleetCode?: string;
+    rfidTag?: string;
     model?: string;
     capacity?: number;
     status?: "ACTIVE" | "REPAIR" | "STANDBY";
@@ -41,6 +42,7 @@ export async function PATCH(
       where: { id: busId },
       data: {
         fleetCode: body.fleetCode,
+        rfidTag: body.rfidTag,
         model: body.model,
         capacity: body.capacity,
         status: body.status,

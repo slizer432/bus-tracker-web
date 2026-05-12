@@ -24,13 +24,14 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     fleetCode?: string;
+    rfidTag?: string;
     model?: string;
     capacity?: number;
     status?: "ACTIVE" | "REPAIR" | "STANDBY";
     routeId?: string | null;
   };
 
-  if (!body.fleetCode || !body.model || !body.capacity) {
+  if (!body.fleetCode || !body.rfidTag || !body.model || !body.capacity) {
     await logAuditEvent({
       action: "BUS_CREATE",
       entity: "bus",
@@ -45,11 +46,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { fleetCode, model, capacity, status, routeId } = body;
+    const { fleetCode, rfidTag, model, capacity, status, routeId } = body;
     const bus = await prisma.$transaction(async (tx) => {
       const createdBus = await tx.bus.create({
         data: {
           fleetCode: fleetCode!,
+          rfidTag: rfidTag!,
           model: model!,
           capacity: capacity!,
           status: status ?? "ACTIVE",
@@ -80,6 +82,7 @@ export async function POST(request: Request) {
       userAgent,
       details: {
         fleetCode: bus.fleetCode,
+        rfidTag: bus.rfidTag,
         model: bus.model,
       },
     });
