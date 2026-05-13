@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type AdminBusItem = {
   id: string;
   fleetCode: string;
+  rfidTag: string;
   model: string;
   capacity: number;
   status: "ACTIVE" | "REPAIR" | "STANDBY";
@@ -14,16 +15,12 @@ export type AdminRouteItem = {
   code: string;
   name: string;
   routeLabel: string;
-  direction: string;
-  coverage: string;
-  type: "WEEKDAYS" | "DAILY" | "PEAK";
   status: "ON_SCHEDULE" | "MINOR_DELAYS" | "DELAYED";
 };
 
 export type AdminStopItem = {
   id: string;
   name: string;
-  rfidTag: string;
   lat: number;
   lng: number;
 };
@@ -64,6 +61,7 @@ export async function getAdminBuses(): Promise<AdminBusItem[]> {
     select: {
       id: true,
       fleetCode: true,
+      rfidTag: true,
       model: true,
       capacity: true,
       status: true,
@@ -75,6 +73,7 @@ export async function getAdminBuses(): Promise<AdminBusItem[]> {
   return buses.map((bus) => ({
     id: bus.id,
     fleetCode: bus.fleetCode,
+    rfidTag: bus.rfidTag,
     model: bus.model,
     capacity: bus.capacity,
     status: bus.status,
@@ -88,9 +87,6 @@ export async function getAdminRoutes(): Promise<AdminRouteItem[]> {
       id: true,
       code: true,
       name: true,
-      coverage: true,
-      direction: true,
-      scheduleType: true,
       status: true,
     },
     orderBy: { code: "asc" },
@@ -101,9 +97,6 @@ export async function getAdminRoutes(): Promise<AdminRouteItem[]> {
     code: route.code,
     name: route.name,
     routeLabel: `${route.code} - ${route.name}`,
-    direction: route.direction,
-    coverage: route.coverage,
-    type: route.scheduleType,
     status: route.status,
   }));
 }
@@ -113,7 +106,6 @@ export async function getAdminStops(): Promise<AdminStopItem[]> {
     select: {
       id: true,
       name: true,
-      rfidTag: true,
       lat: true,
       lng: true,
     },

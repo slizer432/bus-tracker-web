@@ -30,18 +30,6 @@ enum RouteStatus {
   DELAYED
 }
 
-enum RouteConfigStatus {
-  ACTIVE
-  DRAFT
-  INACTIVE
-}
-
-enum ScheduleType {
-  WEEKDAYS
-  DAILY
-  PEAK
-}
-
 enum BusEventType {
   PASSENGER_IN
   PASSENGER_OUT
@@ -138,11 +126,7 @@ model Route {
   id           String            @id @default(cuid())
   code         String            @unique
   name         String
-  direction    String
-  coverage     String
   status       RouteStatus       @default(ON_SCHEDULE)
-  configStatus RouteConfigStatus @default(ACTIVE)
-  scheduleType ScheduleType      @default(WEEKDAYS)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   buses        Bus[]
@@ -152,6 +136,7 @@ model Route {
 model Bus {
   id           String              @id @default(cuid())
   fleetCode    String              @unique
+  rfidTag      String              @unique
   model        String
   capacity     Int
   status       BusOperationalStatus @default(ACTIVE)
@@ -171,7 +156,6 @@ model Bus {
 model Stop {
   id        String      @id @default(cuid())
   name      String
-  rfidTag   String      @unique
   lat       Float
   lng       Float
   createdAt DateTime    @default(now())

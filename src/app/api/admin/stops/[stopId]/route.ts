@@ -31,7 +31,6 @@ export async function PATCH(
 
   const body = (await request.json()) as {
     name?: string;
-    rfidTag?: string;
     lat?: number;
     lng?: number;
   };
@@ -41,7 +40,6 @@ export async function PATCH(
       where: { id: stopId },
       data: {
         name: body.name,
-        rfidTag: body.rfidTag,
         lat: body.lat,
         lng: body.lng,
       },
