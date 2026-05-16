@@ -9,7 +9,9 @@ import {
 } from "react";
 import { mqttClient } from "./mqtt-client";
 
-// Matches rfid.ino payload: {"halte":"Halte A","uid":"83 D9 D5 05","timestamp":"00:01:23"}
+// Matches rfid.ino payload: {"halte":"Halte A","uid":"E3A1B2","timestamp":"00:01:23"}
+// uid = UID RFID card yang ditap (identitas bus)
+// halte = nama halte tempat card di-tap (dari RFID reader mana yang membaca)
 export interface BusRFID {
   halte: string;
   uid: string;
@@ -108,7 +110,9 @@ export function MqttProvider({ children }: MqttProviderProps) {
         }
 
         // --- Handler for bus/tracking (RFID) ---
-        // ESP32 payload: {"halte":"Halte A","uid":"83 D9 D5 05","timestamp":"00:01:23"}
+        // ESP32 payload: {"halte":"Halte A","uid":"E3A1B2","timestamp":"00:01:23"}
+        // uid = UID RFID card = identitas bus
+        // halte = halte mana yang mendeteksi bus tersebut
         const unsub1 = mqttClient.on("bus/tracking", (_topic, message) => {
           if (!mounted) return;
           try {
@@ -136,8 +140,9 @@ export function MqttProvider({ children }: MqttProviderProps) {
 
             setBusRFIDs((prev) => {
               const newMap = new Map(prev);
-              // Key by halte name so we track latest arrival per stop
-              newMap.set(rfidEvent.halte, rfidEvent);
+              // Key by UID (RFID card = bus identity)
+              // Frontend will resolve UID → busCode using rfidTag from database
+              newMap.set(rfidEvent.uid, rfidEvent);
               return newMap;
             });
             setRecentArrivals((prev) => [rfidEvent, ...prev].slice(0, 50));

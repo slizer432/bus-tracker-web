@@ -6,6 +6,7 @@ import { useMqttContext } from "@/lib/iot";
 interface FleetCard {
   id: string;
   busCode: string;
+  rfidTag: string;
   route: string;
   nextArrival: string;
   lastStop: string;
@@ -19,20 +20,26 @@ interface DashboardClientProps {
   fleetCards: FleetCard[];
 }
 
+/**
+ * Finds a matching entry in a Map by trying exact match first,
+ * then case-insensitive/trimmed match. Handles format differences
+ * between database values and MQTT payload values.
+ */
+function findInMap<T>(map: Map<string, T>, key: string): T | undefined {
+  // Exact match
+  const exact = map.get(key);
+  if (exact) return exact;
+
+  // Normalized fallback (trim whitespace, case-insensitive)
+  const keyNorm = key.trim().toLowerCase();
+  for (const [k, v] of map.entries()) {
+    if (k.trim().toLowerCase() === keyNorm) return v;
+  }
+  return undefined;
+}
+
 export default function DashboardClient({ fleetCards }: DashboardClientProps) {
   const { busRFIDs, busPassengers, busHeartbeats, isConnected, lastUpdate } = useMqttContext();
-
-  const getBusRFID = (busId: string) => {
-    return busRFIDs.get(busId);
-  };
-
-  const getBusPassenger = (busId: string) => {
-    return busPassengers.get(busId);
-  };
-
-  const getBusHeartbeat = (busId: string) => {
-    return busHeartbeats.get(busId);
-  };
 
   return (
     <section className="space-y-6">
@@ -65,18 +72,27 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
           </div>
         ) : (
           fleetCards.map((bus) => {
-            const rfid = getBusRFID(bus.busCode);
-            const passenger = getBusPassenger(bus.busCode);
-            const heartbeat = getBusHeartbeat(bus.busCode);
-            
+            // RFID lookup: busRFIDs is keyed by UID, bus.rfidTag is the UID from database
+            const rfid = findInMap(busRFIDs, bus.rfidTag);
+
+            // Passenger lookup: busPassengers is keyed by bus name from IR sensor payload
+            const passenger = findInMap(busPassengers, bus.busCode);
+
+            // Heartbeat lookup
+            const heartbeat = findInMap(busHeartbeats, bus.busCode);
+
+            // Merge realtime data into existing card props (no new cards created)
+            const realtimePassengers = passenger?.totalPassengers ?? bus.passengers;
+            const realtimeLastStop = rfid?.halte ?? bus.lastStop;
+
             return (
               <div key={bus.id} className="relative">
                 <BusCard
                   busId={bus.busCode}
                   route={bus.route}
                   nextArrival={bus.nextArrival}
-                  lastStop={bus.lastStop}
-                  passengers={passenger?.totalPassengers ?? bus.passengers}
+                  lastStop={realtimeLastStop}
+                  passengers={realtimePassengers}
                   capacity={bus.capacity}
                   heading={bus.heading}
                   status={bus.status}
@@ -84,7 +100,7 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
                 {rfid && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-700">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                    At Halte
+                    At {rfid.halte}
                   </div>
                 )}
                 {heartbeat && (
@@ -98,28 +114,6 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
           })
         )}
       </div>
-
-      {busPassengers.size > 0 && (
-        <div className="rounded-xl border border-[#dbe2f9] bg-white p-4">
-          <h3 className="mb-3 text-sm font-bold text-[#141b2c]">Real-Time Passenger Data (IR Sensor)</h3>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from(busPassengers.entries()).map(([busId, data]) => (
-              <div key={busId} className="rounded-lg bg-[#f8f9ff] p-3 text-xs">
-                <div className="font-semibold text-[#0040a1]">{busId}</div>
-                <div className="text-[#586579]">
-                  Last event: {data.lastEvent === "masuk" ? "Passenger In" : "Passenger Out"}
-                </div>
-                <div className="text-[#586579]">
-                  Total: {data.totalPassengers} passengers
-                </div>
-                <div className="text-[#586579]">
-                  Updated: {data.lastTimestamp}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }
