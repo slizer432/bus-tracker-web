@@ -56,7 +56,6 @@ const char* BUS_RFID_UID = "1C B8 D8 05";
 // Global Variables
 // =====================
 int passengerCount = 0;
-const int MAX_CAPACITY = 40;  // Kapasitas maksimal bis
 
 // Debounce state
 unsigned long lastDetectionIn = 0;
@@ -324,31 +323,19 @@ void processPerson(bool isEntering, const char* doorName) {
   String timestamp = getTimestamp();
   
   if (isEntering) {
-    // Penumpang masuk
-    if (passengerCount < MAX_CAPACITY) {
-      passengerCount++;
-      Serial.print("["); Serial.print(timestamp); Serial.print("] ");
-      Serial.print(doorName); Serial.print(" -> +1 | Total: ");
-      Serial.println(passengerCount);
-      flashLED(LED_IN);
-      publishEvent(true, doorName);
-    } else {
-      Serial.print("["); Serial.print(timestamp); Serial.print("] ");
-      Serial.println("WARNING: Kapasitas bis penuh!");
-    }
+    passengerCount++;
+    Serial.print("["); Serial.print(timestamp); Serial.print("] ");
+    Serial.print(doorName); Serial.print(" -> +1 | Total: ");
+    Serial.println(passengerCount);
+    flashLED(LED_IN);
+    publishEvent(true, doorName);
   } else {
-    // Penumpang keluar
-    if (passengerCount > 0) {
-      passengerCount--;
-      Serial.print("["); Serial.print(timestamp); Serial.print("] ");
-      Serial.print(doorName); Serial.print(" -> -1 | Total: ");
-      Serial.println(passengerCount);
-      flashLED(LED_OUT);
-      publishEvent(false, doorName);
-    } else {
-      Serial.print("["); Serial.print(timestamp); Serial.print("] ");
-      Serial.println("WARNING: Tidak ada penumpang untuk keluar!");
-    }
+    passengerCount--;
+    Serial.print("["); Serial.print(timestamp); Serial.print("] ");
+    Serial.print(doorName); Serial.print(" -> -1 | Total: ");
+    Serial.println(passengerCount);
+    flashLED(LED_OUT);
+    publishEvent(false, doorName);
   }
 }
 
@@ -357,10 +344,7 @@ void processPerson(bool isEntering, const char* doorName) {
 // =====================
 void displayPassengerStatus() {
   Serial.print("Penumpang saat ini: ");
-  Serial.print(passengerCount);
-  Serial.print(" / ");
-  Serial.print(MAX_CAPACITY);
-  Serial.println();
+  Serial.println(passengerCount);
 }
 
 // Publish Event to MQTT
