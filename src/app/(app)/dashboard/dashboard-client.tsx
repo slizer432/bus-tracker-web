@@ -2,6 +2,7 @@
 
 import BusCard from "@/components/BusCard";
 import { useMqttContext } from "@/lib/iot";
+import { useEffect, useMemo, useState } from "react";
 
 interface FleetCard {
   id: string;
@@ -39,7 +40,51 @@ function findInMap<T>(map: Map<string, T>, key: string): T | undefined {
 }
 
 export default function DashboardClient({ fleetCards }: DashboardClientProps) {
-  const { busRFIDs, busPassengers, busHeartbeats, isConnected, lastUpdate } = useMqttContext();
+  const { busRFIDs, busPassengers, busHeartbeats, isConnected, lastUpdate } =
+    useMqttContext();
+  const [liveFleetCards, setLiveFleetCards] = useState<FleetCard[]>(fleetCards);
+  const [pollError, setPollError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLiveFleetCards(fleetCards);
+  }, [fleetCards]);
+
+  useEffect(() => {
+    let mounted = true;
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const fetchFleetCards = async () => {
+      try {
+        const response = await fetch("/api/dashboard/fleet", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error ?? "Failed to refresh fleet data.");
+        }
+
+        const data = (await response.json()) as FleetCard[];
+        if (mounted) {
+          setLiveFleetCards(data);
+          setPollError(null);
+        }
+      } catch (error) {
+        if (mounted) {
+          setPollError((error as Error).message ?? "Failed to refresh fleet data.");
+        }
+      }
+    };
+
+    fetchFleetCards();
+    intervalId = setInterval(fetchFleetCards, 10000);
+
+    return () => {
+      mounted = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
 
   return (
     <section className="space-y-6">
@@ -62,28 +107,31 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
               Last update: {lastUpdate.toLocaleTimeString()}
             </span>
           )}
+          {pollError ? (
+            <span className="text-xs text-amber-600">{pollError}</span>
+          ) : null}
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {fleetCards.length === 0 ? (
+        {liveFleetCards.length === 0 ? (
           <div className="rounded-xl border border-[#dbe2f9] bg-white p-6 text-sm font-semibold text-[#586579]">
             No buses have been added yet.
           </div>
         ) : (
-          fleetCards.map((bus) => {
+          liveFleetCards.map((bus) => {
             // RFID lookup: busRFIDs is keyed by UID, bus.rfidTag is the UID from database
             const rfid = findInMap(busRFIDs, bus.rfidTag);
 
-            // Passenger lookup: busPassengers is keyed by bus name from IR sensor payload
-            const passenger = findInMap(busPassengers, bus.busCode);
+            // Passenger lookup: busPassengers is keyed by UID from IR sensor payload
+            const passenger = findInMap(busPassengers, bus.rfidTag);
 
             // Heartbeat lookup
             const heartbeat = findInMap(busHeartbeats, bus.busCode);
 
             // Merge realtime data into existing card props (no new cards created)
             const realtimePassengers = passenger?.totalPassengers ?? bus.passengers;
-            const realtimeLastStop = rfid?.halte ?? bus.lastStop;
+            const realtimeLastStop = rfid?.stopId ? `Stop ${rfid.stopId}` : bus.lastStop;
 
             return (
               <div key={bus.id} className="relative">
@@ -100,7 +148,7 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
                 {rfid && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-700">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                    At {rfid.halte}
+                    At {rfid.stopId}
                   </div>
                 )}
                 {heartbeat && (
