@@ -9,26 +9,27 @@ import {
 } from "react";
 import { mqttClient } from "./mqtt-client";
 
-// Matches rfid.ino payload: {"halte":"Halte A","uid":"E3A1B2","timestamp":"00:01:23"}
+// Matches rfid.ino payload: {"uid":"1C B8 D8 05","stopId":"cmp2o45l40001i8glm8htfncd","timestamp":"00:01:23"}
 // uid = UID RFID card yang ditap (identitas bus)
-// halte = nama halte tempat card di-tap (dari RFID reader mana yang membaca)
+// stopId = ID halte dari database (dari RFID reader mana yang membaca)
 export interface BusRFID {
-  halte: string;
+  stopId: string;
   uid: string;
   timestamp: string;
 }
 
-// Matches irSensor.ino payload: {"event":"masuk"|"keluar","passenger_count":1,"bus":"Bis A","timestamp":"00:01:23"}
+// Matches irSensor.ino payload: {"uid":"1C B8 D8 05","event":"masuk"|"keluar","passenger_count":1,"timestamp":"00:01:23"}
+// uid = UID RFID card yang mewakili bus (sama dengan rfidTag di database)
 export interface BusPassengerEvent {
   event: "masuk" | "keluar";
   passenger_count: number;
-  bus: string;
+  uid: string;
   timestamp: string;
 }
 
-// Accumulated passenger state per bus (derived from events)
+// Accumulated passenger state per bus (derived from events, keyed by UID)
 export interface BusPassengerState {
-  bus: string;
+  uid: string;
   totalPassengers: number;
   lastEvent: "masuk" | "keluar";
   lastTimestamp: string;
@@ -110,9 +111,9 @@ export function MqttProvider({ children }: MqttProviderProps) {
         }
 
         // --- Handler for bus/tracking (RFID) ---
-        // ESP32 payload: {"halte":"Halte A","uid":"E3A1B2","timestamp":"00:01:23"}
+        // ESP32 payload: {"uid":"1C B8 D8 05","stopId":"cmp2o45l40001i8glm8htfncd","timestamp":"00:01:23"}
         // uid = UID RFID card = identitas bus
-        // halte = halte mana yang mendeteksi bus tersebut
+        // stopId = ID halte dari database
         const unsub1 = mqttClient.on("bus/tracking", (_topic, message) => {
           if (!mounted) return;
           try {
@@ -121,7 +122,7 @@ export function MqttProvider({ children }: MqttProviderProps) {
 
             // Validate required fields from rfid.ino
             if (
-              typeof data.halte !== "string" ||
+              typeof data.stopId !== "string" ||
               typeof data.uid !== "string" ||
               typeof data.timestamp !== "string"
             ) {
@@ -133,7 +134,7 @@ export function MqttProvider({ children }: MqttProviderProps) {
             }
 
             const rfidEvent: BusRFID = {
-              halte: data.halte,
+              stopId: data.stopId,
               uid: data.uid,
               timestamp: data.timestamp,
             };
@@ -158,7 +159,7 @@ export function MqttProvider({ children }: MqttProviderProps) {
         });
 
         // --- Handler for bus/passenger/event (IR Sensor) ---
-        // ESP32 payload: {"event":"masuk"|"keluar","passenger_count":1,"bus":"Bis A","timestamp":"00:01:23"}
+        // ESP32 payload: {"uid":"1C B8 D8 05","event":"masuk"|"keluar","passenger_count":1,"timestamp":"00:01:23"}
         const unsub2 = mqttClient.on(
           "bus/passenger/event",
           (_topic, message) => {
@@ -171,7 +172,7 @@ export function MqttProvider({ children }: MqttProviderProps) {
               if (
                 typeof data.event !== "string" ||
                 typeof data.passenger_count !== "number" ||
-                typeof data.bus !== "string" ||
+                typeof data.uid !== "string" ||
                 typeof data.timestamp !== "string"
               ) {
                 console.warn(
@@ -184,7 +185,7 @@ export function MqttProvider({ children }: MqttProviderProps) {
               const passengerEvent: BusPassengerEvent = {
                 event: data.event as "masuk" | "keluar",
                 passenger_count: data.passenger_count,
-                bus: data.bus,
+                uid: data.uid,
                 timestamp: data.timestamp,
               };
 
@@ -193,18 +194,18 @@ export function MqttProvider({ children }: MqttProviderProps) {
                 [passengerEvent, ...prev].slice(0, 50),
               );
 
-              // Update accumulated passenger state per bus
+              // Update accumulated passenger state per bus (keyed by UID)
               setBusPassengers((prev) => {
                 const newMap = new Map(prev);
-                const existing = newMap.get(passengerEvent.bus);
+                const existing = newMap.get(passengerEvent.uid);
                 const currentTotal = existing ? existing.totalPassengers : 0;
                 const newTotal =
                   passengerEvent.event === "masuk"
                     ? currentTotal + passengerEvent.passenger_count
                     : Math.max(0, currentTotal - passengerEvent.passenger_count);
 
-                newMap.set(passengerEvent.bus, {
-                  bus: passengerEvent.bus,
+                newMap.set(passengerEvent.uid, {
+                  uid: passengerEvent.uid,
                   totalPassengers: newTotal,
                   lastEvent: passengerEvent.event,
                   lastTimestamp: passengerEvent.timestamp,

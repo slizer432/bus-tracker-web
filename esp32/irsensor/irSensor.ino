@@ -47,6 +47,10 @@ const char* MQTT_USER = "kelompok4bus";
 const char* MQTT_PASS = "Buskelompok4";
 const char* MQTT_TOPIC_EVENT = "bus/passenger/event";
 
+// UID RFID card yang mewakili bus ini
+// Samakan dengan UID kartu RFID fisik yang digunakan untuk tap di halte
+const char* BUS_RFID_UID = "1C B8 D8 05";
+
 // =====================
 // Global Variables
 // =====================
@@ -346,9 +350,9 @@ void publishEvent(bool isEntering, const char* doorName) {
   if (!mqttClient.connected()) return;
   
   String payload = "{";
+  payload += "\"uid\":\"" + String(BUS_RFID_UID) + "\",";
   payload += "\"event\":\"" + String(isEntering ? "masuk" : "keluar") + "\",";
   payload += "\"passenger_count\":1,";
-  payload += "\"bus\":\"Bis A\",";
   payload += "\"timestamp\":\"" + getTimestamp() + "\"";
   payload += "}";
   

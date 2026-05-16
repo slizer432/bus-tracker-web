@@ -18,6 +18,7 @@ interface FleetCard {
 
 interface DashboardClientProps {
   fleetCards: FleetCard[];
+  stopsMap: Record<string, string>;
 }
 
 /**
@@ -38,7 +39,7 @@ function findInMap<T>(map: Map<string, T>, key: string): T | undefined {
   return undefined;
 }
 
-export default function DashboardClient({ fleetCards }: DashboardClientProps) {
+export default function DashboardClient({ fleetCards, stopsMap }: DashboardClientProps) {
   const { busRFIDs, busPassengers, busHeartbeats, isConnected, lastUpdate } = useMqttContext();
 
   return (
@@ -75,15 +76,15 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
             // RFID lookup: busRFIDs is keyed by UID, bus.rfidTag is the UID from database
             const rfid = findInMap(busRFIDs, bus.rfidTag);
 
-            // Passenger lookup: busPassengers is keyed by bus name from IR sensor payload
-            const passenger = findInMap(busPassengers, bus.busCode);
+            // Passenger lookup: busPassengers is now keyed by UID (same as rfidTag)
+            const passenger = findInMap(busPassengers, bus.rfidTag);
 
             // Heartbeat lookup
             const heartbeat = findInMap(busHeartbeats, bus.busCode);
 
             // Merge realtime data into existing card props (no new cards created)
             const realtimePassengers = passenger?.totalPassengers ?? bus.passengers;
-            const realtimeLastStop = rfid?.halte ?? bus.lastStop;
+            const realtimeLastStop = rfid ? (stopsMap[rfid.stopId] ?? rfid.stopId) : bus.lastStop;
 
             return (
               <div key={bus.id} className="relative">
@@ -100,7 +101,7 @@ export default function DashboardClient({ fleetCards }: DashboardClientProps) {
                 {rfid && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-700">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                    At {rfid.halte}
+                    At {stopsMap[rfid.stopId] ?? rfid.stopId}
                   </div>
                 )}
                 {heartbeat && (

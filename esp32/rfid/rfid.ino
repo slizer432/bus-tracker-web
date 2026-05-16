@@ -28,12 +28,12 @@
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 
-#define SS_PIN_1 5   // Halte A
-#define SS_PIN_2 21  // Halte B
+#define SS_PIN_1 5   // RFID Reader 1 (Stop A)
+#define SS_PIN_2 21  // RFID Reader 2 (Stop B)
 #define RST_PIN 22   // Common RST
 
-#define LED1_PIN 25  // Halte A LED
-#define LED2_PIN 26  // Halte B LED
+#define LED1_PIN 25  // Stop A LED
+#define LED2_PIN 26  // Stop B LED
 #define LED_FLASH_MS 300
 
 MFRC522 rfid1(SS_PIN_1, RST_PIN);
@@ -63,6 +63,12 @@ const char* MQTT_USER = "kelompok4bus"; // optional
 const char* MQTT_PASS = "Buskelompok4"; // optional
 const char* MQTT_TOPIC = "bus/tracking";
 
+// Stop IDs from database (mapped to each RFID reader)
+// GPIO5 (RFID Reader 1) = Stop A
+const char* STOP_ID_1 = "cmp2o45l40001i8glm8htfncd";
+// GPIO21 (RFID Reader 2) = Stop B
+const char* STOP_ID_2 = "cmp2o45l50003i8glmvgkhmx9";
+
 WiFiClientSecure espClient;
 PubSubClient mqttClient(espClient);
 
@@ -76,7 +82,7 @@ void runDiagnostics();
 void checkRFIDConnection(MFRC522 &reader, const char* readerName);
 void checkLEDConnection();
 String getUidString(MFRC522 &reader);
-void checkAndProcessRFID(MFRC522 &reader, int ledPin, const char* halte, bool &cardDetected, String &lastUid);
+void checkAndProcessRFID(MFRC522 &reader, int ledPin, const char* stopId, bool &cardDetected, String &lastUid);
 void flashLED(int pin, int durationMs);
 String getTimestamp();
 
@@ -113,8 +119,8 @@ void loop() {
   }
   mqttClient.loop();
   // Check readers
-  checkAndProcessRFID(rfid1, LED1_PIN, "Halte A", cardDetectedA, lastUidA);
-  checkAndProcessRFID(rfid2, LED2_PIN, "Halte B", cardDetectedB, lastUidB);
+  checkAndProcessRFID(rfid1, LED1_PIN, STOP_ID_1, cardDetectedA, lastUidA);
+  checkAndProcessRFID(rfid2, LED2_PIN, STOP_ID_2, cardDetectedB, lastUidB);
   delay(50);
 }
 
@@ -281,7 +287,7 @@ String getUidString(MFRC522 &reader) {
 void checkAndProcessRFID(
   MFRC522 &reader,
   int ledPin,
-  const char* halte,
+  const char* stopId,
   bool &cardDetected,
   String &lastUid
 ) {
@@ -296,22 +302,23 @@ void checkAndProcessRFID(
     }
     uid.toUpperCase();
 
-    // Log to serial similar to the simple test
-    Serial.print(halte);
+    // Log to serial
+    Serial.print("Stop: ");
+    Serial.print(stopId);
     Serial.print(" UID: ");
     Serial.println(uid);
 
-    // LED briefly ON (like test sketch)
+    // LED briefly ON
     digitalWrite(ledPin, HIGH);
     delay(1000);
     digitalWrite(ledPin, LOW);
 
-    // MQTT publish (keep same payload structure)
+    // MQTT publish
     if (mqttClient.connected()) {
       String timestamp = getTimestamp();
       String payload = "{";
-      payload += "\"halte\":\"" + String(halte) + "\",";
       payload += "\"uid\":\"" + uid + "\",";
+      payload += "\"stopId\":\"" + String(stopId) + "\",";
       payload += "\"timestamp\":\"" + timestamp + "\"";
       payload += "}";
 
